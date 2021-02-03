@@ -50,6 +50,20 @@ def bounding_ellipses(ellipses_nuclei, n_neighbour_nuclei=1, radial_slack=0.0):
 
     return ellipses_bounding
 
+def nuclei_edge_condition(nuclei_id_pixels, thickness=1):
+    '''Bla bla
+
+    '''
+    top_slice = nuclei_id_pixels[:thickness, :]
+    bottom_slice = nuclei_id_pixels[-thickness:, :]
+    left_slice = nuclei_id_pixels[:, :thickness]
+    right_slice = nuclei_id_pixels[:, -thickness:]
+
+    on_edge = np.union1d(np.unique(right_slice), np.union1d(np.unique(left_slice), np.union1d(np.unique(top_slice), np.unique(bottom_slice))))
+    on_edge = [x for x in on_edge if x != 0]
+
+    return on_edge
+
 class _ConfocalSegmentor(object):
     '''Bla bla
 
@@ -91,7 +105,6 @@ class ConfocalNucleusSegmentor(_ConfocalSegmentor):
 
         self.mask = self._denoise_and_thrs(img_nuclei, self.denoise_upper_luminosity,
                                            self.denoise_object_area, self.denoise_hole_area)
-        #self.mask = np.invert(mask)
         self.segments_id, self.n_segments = ndimage.label(self.mask)
         self.segments_ellipse = ellipse_fits(self.segments_id)
 
@@ -113,15 +126,38 @@ class ConfocalCellSegmentor(_ConfocalSegmentor):
     '''
     def __init__(self, img_data_accessor, reader_func, reader_func_kwargs={},
                  nucleus_segmentor=None,
+                 prune_min_area=500, prune_entire_nucleus=True,
                  denoise_lower_luminosity=50, denoise_object_area=16, denoise_hole_area=16):
 
         super().__init__(img_data_accessor, reader_func, reader_func_kwargs)
         self.nucleus_segmentor = nucleus_segmentor
+        self.prune_min_area = prune_min_area
+        self.prune_entire_nucleus = prune_entire_nucleus
         self.denoise_lower_luminosity = denoise_lower_luminosity
         self.denoise_object_area = denoise_object_area
         self.denoise_hole_area = denoise_hole_area
 
         self.mask = {}
+
+    def prune(self):
+        '''Bla bla
+
+        '''
+        delete_list = []
+
+        for cell_counter in self.mask.keys():
+            if np.sum(self.mask[cell_counter]) < self.prune_min_area:
+                delete_list.append(cell_counter)
+
+        if self.prune_entire_nucleus:
+            nuclei_at_edge = nuclei_edge_condition(self.nucleus_segmentor.segments_id)
+            delete_list.extend(nuclei_at_edge)
+
+        print (delete_list)
+        for cell_counter_discard in delete_list:
+            self.mask.pop(cell_counter_discard, None)
+
+        return self
 
     def segment(self, img_er_path, img_nuclei_path):
 
@@ -139,7 +175,7 @@ class ConfocalCellSegmentor(_ConfocalSegmentor):
                                           self.denoise_object_area, self.denoise_hole_area)
 
         # Run segmentation on masked image data
-        for cell_id, ellipse_b in nucleus_bounding_ellipses.items():
+        for cell_counter, ellipse_b in nucleus_bounding_ellipses.items():
 
             # Mask for content within bounding ellipse (and within frame of image)
             ellipse_kwargs = dict(zip(('r', 'c', 'r_radius', 'c_radius', 'rotation'), ellipse_b.params))
@@ -158,24 +194,25 @@ class ConfocalCellSegmentor(_ConfocalSegmentor):
             labels[~mask_cell_area] = -1
 
             segmented = watershed(~img_thrs, labels)
-            self.mask[cell_id] = segmented == labels[ellipse_kwargs['r'], ellipse_kwargs['c']]
+            self.mask[cell_counter] = segmented == labels[ellipse_kwargs['r'], ellipse_kwargs['c']]
 
 
-        fig, ax = plt.subplots(2,2)
-        ax[0,0].imshow(img_cell, cmap='gray')
-        ax[0,0].imshow(self.mask[5], alpha=0.5, cmap=plt.cm.jet)
-        ax[0,1].imshow(img_cell, cmap='gray')
-        ax[0,1].imshow(self.mask[9], alpha=0.5, cmap=plt.cm.jet)
-        ax[1,0].imshow(img_cell, cmap='gray')
-        ax[1,0].imshow(self.mask[14], alpha=0.5, cmap=plt.cm.jet)
-        ax[1,1].imshow(img_cell, cmap='gray')
-        ax[1,1].imshow(self.mask[15], alpha=0.5, cmap=plt.cm.jet)
-        plt.show()
+        #fig, ax = plt.subplots(2,2)
+        #ax[0,0].imshow(img_cell, cmap='gray')
+        #ax[0,0].imshow(self.mask[5], alpha=0.5, cmap=plt.cm.jet)
+        #ax[0,1].imshow(img_cell, cmap='gray')
+        #ax[0,1].imshow(self.mask[9], alpha=0.5, cmap=plt.cm.jet)
+        #ax[1,0].imshow(img_cell, cmap='gray')
+        #ax[1,0].imshow(self.mask[14], alpha=0.5, cmap=plt.cm.jet)
+        #ax[1,1].imshow(img_cell, cmap='gray')
+        #ax[1,1].imshow(self.mask[15], alpha=0.5, cmap=plt.cm.jet)
+        #plt.show()
 
-        fig, ax = plt.subplots(1,1)
-        div_mask = np.zeros(img_cell.shape)
-        for cell_id, mask in self.mask.items():
-            div_mask[mask] = cell_id
-        ax.imshow(img_cell, cmap='gray')
-        ax.imshow(div_mask, alpha=0.5, cmap=plt.cm.jet)
-        plt.show()
+        #fig, ax = plt.subplots(1,1)
+        #div_mask = np.zeros(img_cell.shape)
+        #for cell_counter, mask in self.mask.items():
+        #    div_mask[mask] = cell_counter
+        #ax.imshow(img_cell, cmap='gray')
+        #ax.imshow(div_mask, alpha=0.5, cmap=plt.cm.jet)
+        #plt.show()
+        return self

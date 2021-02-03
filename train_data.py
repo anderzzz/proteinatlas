@@ -6,8 +6,6 @@ from enum import Enum
 
 import pandas as pd
 
-from cellmeta import organelle_meta
-
 class ImgMetaDataError(Exception):
     pass
 
