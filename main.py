@@ -11,7 +11,7 @@ local_imgs = factory.create('local disk', src_dir='./data_tmp')
 segmentor_nuc = ConfocalNucleusSegmentor(img_data_accessor=local_imgs, reader_func=imread)
 segmentor_cell = ConfocalCellSegmentor(img_data_accessor=local_imgs, reader_func=imread,
                                        nucleus_segmentor=segmentor_nuc)
-slicer_cell = ImageShapeMaker(img_data_accessor=local_imgs, reader_func=imread)
+shaper_cell = ImageShapeMaker(img_data_accessor=local_imgs, reader_func=imread)
 
 df_labels = parse_labels('./data_tmp/train.csv')
 
@@ -22,7 +22,9 @@ for cell_id, data_path_collection in local_imgs.items():
     img_prot = data_path_collection['green']
 
     segmentor_cell.segment(img_er, img_nuc).prune()
-    slicer_cell.outline_rect(img_prot, segmentor_cell.mask)
+#    shaper_cell.cut_rect(img_prot, segmentor_cell.mask)
+
+    imgs_cells = shaper_cell(images=img_prot, masks=segmentor_cell.mask, shaper_key='cut rectangle')
 
     print (df_labels.loc[cell_id])
 

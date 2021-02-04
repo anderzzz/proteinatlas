@@ -14,7 +14,23 @@ class ImageShapeMaker(object):
         self.reader_func = reader_func
         self.reader_func_kwargs = reader_func_kwargs
 
-    def outline(self, img_path, mask):
+    def __call__(self, images, masks, shaper_key):
+        '''Bla bla
+
+        '''
+        if shaper_key == 'outline':
+            return self._outline(images, masks)
+
+        elif shaper_key == 'outline rectangle':
+            return self._outline_rect(images, masks)
+
+        elif shaper_key == 'cut rectangle':
+            return self._cut_rect(images, masks)
+
+        else:
+            raise ValueError('Unknown shaper key: {}'.format(shaper_key))
+
+    def _outline(self, img_path, mask):
         '''Bla bla
 
         '''
@@ -36,7 +52,7 @@ class ImageShapeMaker(object):
 
         '''
         _rect_cell_imgs = {}
-        for cell_counter, cell_outline in self.outline(img_path, mask).items():
+        for cell_counter, cell_outline in self._outline(img_path, mask).items():
             inside_mask_inds = np.argwhere(cell_outline > -1)
 
             x_min = min(inside_mask_inds[:,0])
@@ -52,7 +68,7 @@ class ImageShapeMaker(object):
 
         return _rect_cell_imgs
 
-    def outline_rect(self, img_path, mask):
+    def _outline_rect(self, img_path, mask):
         '''Bla bla
 
         '''
@@ -63,7 +79,7 @@ class ImageShapeMaker(object):
 
         return self._rect(img_path, mask, _my_post_func)
 
-    def cut_rect(self, img_path, mask):
+    def _cut_rect(self, img_path, mask):
         '''Bla bla
 
         '''
@@ -72,6 +88,7 @@ class ImageShapeMaker(object):
             return np.where(box_cut < 0, 0, box_cut)
 
         return self._rect(img_path, mask, _my_post_func)
+
 
 
 
