@@ -153,7 +153,6 @@ class ConfocalCellSegmentor(_ConfocalSegmentor):
             nuclei_at_edge = nuclei_edge_condition(self.nucleus_segmentor.segments_id)
             delete_list.extend(nuclei_at_edge)
 
-        print (delete_list)
         for cell_counter_discard in delete_list:
             self.mask.pop(cell_counter_discard, None)
 

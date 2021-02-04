@@ -23,7 +23,7 @@ class ImageShapeMaker(object):
 
         self.image = None
         self.masks = None
-        self.imgs_shaped = {}
+        self.cell_images_reshaped = {}
 
     def apply_to(self, img_path, masks):
         '''Bla bla
@@ -31,6 +31,9 @@ class ImageShapeMaker(object):
         '''
         self.image = self.reader_func(img_path, **self.reader_func_kwargs)
         self.masks = masks
+        for cell_counter, cell_mask in self.masks.items():
+            img_single_cell = np.where(cell_mask, self.image, -1)
+            self.cell_images_reshaped[cell_counter] = img_single_cell
 
         return self
 
@@ -39,37 +42,6 @@ class ImageShapeMaker(object):
         '''Bla bla
 
         '''
-        for cell_counter, cell_mask in self.masks.items():
-            img_single_cell = np.where(cell_mask, self.image, -1)
-            self.imgs_shaped[cell_counter] = img_single_cell
-
-            #fig, ax = plt.subplots(1,1)
-            #ax.imshow(img_single_cell, cmap=plt.cm.jet)
-            #plt.show()
-
-        return self
-
-    def _rect(self, post_func):
-        '''Bla bla
-
-        '''
-        _rect_cell_imgs = {}
-        for cell_counter, cell_outline in self.imgs_shaped.items():
-            inside_mask_inds = np.argwhere(cell_outline > -1)
-
-            x_min = min(inside_mask_inds[:,0])
-            y_min = min(inside_mask_inds[:,1])
-            x_max = max(inside_mask_inds[:,0])
-            y_max = max(inside_mask_inds[:,1])
-
-            _rect_cell_imgs[cell_counter] = post_func(cell_outline, x_min, x_max, y_min, y_max)
-
-            fig, ax = plt.subplots(1,1)
-            ax.imshow(_rect_cell_imgs[cell_counter], cmap=plt.cm.jet)
-            plt.show()
-
-        self.imgs_shaped = _rect_cell_imgs
-
         return self
 
     @check_after_apply
@@ -82,7 +54,6 @@ class ImageShapeMaker(object):
             box_outline[x_min: x_max + 1, y_min: y_max + 1] = 0
             return np.where(cell_outline < 0, box_outline, cell_outline)
 
-        self.outline()
         return self._rect(_my_post_func)
 
     @check_after_apply
@@ -94,10 +65,76 @@ class ImageShapeMaker(object):
             box_cut = cell_outline[x_min:x_max + 1, y_min:y_max + 1]
             return np.where(box_cut < 0, 0, box_cut)
 
-        self.outline()
         return self._rect(_my_post_func)
 
+    @check_after_apply
+    def cut_square(self):
+        '''Bla bla
 
+        '''
+        def _my_post_func(cell_outline, x_min, x_max, y_min, y_max):
+            dx = x_max - x_min
+            dy = y_max - y_min
+            if dx >= dy:
+                dd = int((dx - dy) / 2)
+                if y_min - dd < 0:
+                    slack_high = dd - y_min
+                    low = 0
+                else:
+                    slack_high = 0
+                    low = y_min - dd
 
+                if y_max + dd + 1 > self.image.shape[0]:
+                    slack_low = y_max + dd + 1 - self.image.shape[0]
+                    high = self.image.shape[0]
+                else:
+                    slack_low = 0
+                    high = y_max + dd + 1
 
+                box_cut = cell_outline[x_min:x_max + 1, low - slack_low:high + slack_high]
+
+            else:
+                dd = int((dy - dx) / 2)
+                if x_min - dd < 0:
+                    slack_high = dd - x_min
+                    low = 0
+                else:
+                    slack_high = 0
+                    low = x_min - dd
+
+                if x_max + dd + 1 > self.image.shape[0]:
+                    slack_low = x_max + dd + 1 - self.image.shape[0]
+                    high = self.image.shape[0]
+                else:
+                    slack_low = 0
+                    high = x_max + dd + 1
+
+                box_cut = cell_outline[low - slack_low:high + slack_high, y_min:y_max + 1]
+
+            return np.where(box_cut < 0, 0, box_cut)
+
+        return self._rect(_my_post_func)
+
+    def _rect(self, post_func):
+        '''Bla bla
+
+        '''
+        _rect_cell_imgs = {}
+        for cell_counter, cell_outline in self.cell_images_reshaped.items():
+            inside_mask_inds = np.argwhere(cell_outline > -1)
+
+            x_min = min(inside_mask_inds[:,0])
+            y_min = min(inside_mask_inds[:,1])
+            x_max = max(inside_mask_inds[:,0])
+            y_max = max(inside_mask_inds[:,1])
+
+            _rect_cell_imgs[cell_counter] = post_func(cell_outline, x_min, x_max, y_min, y_max)
+
+            #fig, ax = plt.subplots(1,1)
+            #ax.imshow(_rect_cell_imgs[cell_counter], cmap=plt.cm.jet)
+            #plt.show()
+
+        self.cell_images_reshaped = _rect_cell_imgs
+
+        return self
 
