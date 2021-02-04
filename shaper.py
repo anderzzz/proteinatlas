@@ -4,6 +4,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+def check_after_apply(f):
+    def wrapper(*args):
+        if args[0].image is None:
+            raise RuntimeError('Before call to shaper methods, the `apply_to` method has to be called')
+        return f(*args)
+    return wrapper
+
 class ImageShapeMaker(object):
     '''Bla bla
 
@@ -14,45 +21,40 @@ class ImageShapeMaker(object):
         self.reader_func = reader_func
         self.reader_func_kwargs = reader_func_kwargs
 
-    def __call__(self, images, masks, shaper_key):
+        self.image = None
+        self.masks = None
+        self.imgs_shaped = {}
+
+    def apply_to(self, img_path, masks):
         '''Bla bla
 
         '''
-        if shaper_key == 'outline':
-            return self._outline(images, masks)
+        self.image = self.reader_func(img_path, **self.reader_func_kwargs)
+        self.masks = masks
 
-        elif shaper_key == 'outline rectangle':
-            return self._outline_rect(images, masks)
+        return self
 
-        elif shaper_key == 'cut rectangle':
-            return self._cut_rect(images, masks)
-
-        else:
-            raise ValueError('Unknown shaper key: {}'.format(shaper_key))
-
-    def _outline(self, img_path, mask):
+    @check_after_apply
+    def outline(self):
         '''Bla bla
 
         '''
-        img_prot = self.reader_func(img_path, **self.reader_func_kwargs)
-
-        outlined_cell_imgs = {}
-        for cell_counter, cell_mask in mask.items():
-            img_single_cell = np.where(cell_mask, img_prot, -1)
-            outlined_cell_imgs[cell_counter] = img_single_cell
+        for cell_counter, cell_mask in self.masks.items():
+            img_single_cell = np.where(cell_mask, self.image, -1)
+            self.imgs_shaped[cell_counter] = img_single_cell
 
             #fig, ax = plt.subplots(1,1)
             #ax.imshow(img_single_cell, cmap=plt.cm.jet)
             #plt.show()
 
-        return outlined_cell_imgs
+        return self
 
-    def _rect(self, img_path, mask, post_func):
+    def _rect(self, post_func):
         '''Bla bla
 
         '''
         _rect_cell_imgs = {}
-        for cell_counter, cell_outline in self._outline(img_path, mask).items():
+        for cell_counter, cell_outline in self.imgs_shaped.items():
             inside_mask_inds = np.argwhere(cell_outline > -1)
 
             x_min = min(inside_mask_inds[:,0])
@@ -66,9 +68,12 @@ class ImageShapeMaker(object):
             ax.imshow(_rect_cell_imgs[cell_counter], cmap=plt.cm.jet)
             plt.show()
 
-        return _rect_cell_imgs
+        self.imgs_shaped = _rect_cell_imgs
 
-    def _outline_rect(self, img_path, mask):
+        return self
+
+    @check_after_apply
+    def outline_rect(self):
         '''Bla bla
 
         '''
@@ -77,9 +82,11 @@ class ImageShapeMaker(object):
             box_outline[x_min: x_max + 1, y_min: y_max + 1] = 0
             return np.where(cell_outline < 0, box_outline, cell_outline)
 
-        return self._rect(img_path, mask, _my_post_func)
+        self.outline()
+        return self._rect(_my_post_func)
 
-    def _cut_rect(self, img_path, mask):
+    @check_after_apply
+    def cut_rect(self):
         '''Bla bla
 
         '''
@@ -87,7 +94,8 @@ class ImageShapeMaker(object):
             box_cut = cell_outline[x_min:x_max + 1, y_min:y_max + 1]
             return np.where(box_cut < 0, 0, box_cut)
 
-        return self._rect(img_path, mask, _my_post_func)
+        self.outline()
+        return self._rect(_my_post_func)
 
 
 

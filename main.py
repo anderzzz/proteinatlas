@@ -22,9 +22,7 @@ for cell_id, data_path_collection in local_imgs.items():
     img_prot = data_path_collection['green']
 
     segmentor_cell.segment(img_er, img_nuc).prune()
-#    shaper_cell.cut_rect(img_prot, segmentor_cell.mask)
-
-    imgs_cells = shaper_cell(images=img_prot, masks=segmentor_cell.mask, shaper_key='cut rectangle')
+    shaper_cell.apply_to(img_prot, segmentor_cell.mask).cut_rect()
 
     print (df_labels.loc[cell_id])
 
