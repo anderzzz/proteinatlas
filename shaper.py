@@ -52,9 +52,6 @@ class ImageShapeMaker(object):
 
         return _rect_cell_imgs
 
-
-
-
     def outline_rect(self, img_path, mask):
         '''Bla bla
 
