@@ -125,20 +125,20 @@ class _ConfocalMaskSegmentor(_ConfocalWorker):
 
         super().__init__(img_data_accessor, reader_func, reader_func_kwargs)
 
-        self.mask_segment_ = {}
+        self.mask_segment = {}
         self.segments = None
 
     def cmp_mask_segments(self):
 
         for cell_counter in range(1, np.max(self.segments) + 1):
-            self.mask_segment_[cell_counter] = self.segments == cell_counter
+            self.mask_segment[cell_counter] = self.segments == cell_counter
 
     def del_segments(self, delete_list):
         '''Bla bla
 
         '''
         for cell_counter in delete_list:
-            self.mask_segment_.pop(cell_counter, None)
+            self.mask_segment.pop(cell_counter, None)
 
     def get_segments_on_edge(self, edge_thickness=1):
         '''Bla bla
@@ -163,7 +163,7 @@ class _ConfocalMaskSegmentor(_ConfocalWorker):
         for cell_counter, segment_mask in self.items():
             hole_free_segment_mask = ndimage.binary_fill_holes(segment_mask)
             new_mask_dict[cell_counter] = hole_free_segment_mask
-        self.mask_segment_ = new_mask_dict
+        self.mask_segment = new_mask_dict
 
     @property
     def area_segments(self):
@@ -173,13 +173,13 @@ class _ConfocalMaskSegmentor(_ConfocalWorker):
 
     @property
     def n_segments(self):
-        return len(self.mask_segment_)
+        return len(self.mask_segment)
 
     def __getitem__(self, item):
-        return self.mask_segment_[item]
+        return self.mask_segment[item]
 
     def items(self):
-        for key, value in self.mask_segment_.items():
+        for key, value in self.mask_segment.items():
             yield key, value
 
 
@@ -231,10 +231,12 @@ class ConfocalNucleusSegmentor(_ConfocalMaskSegmentor):
         if self.fit_ellipses:
             self.segments_ellipse = ellipse_fits(self.segments)
 
-        fig, ax = plt.subplots(1,1)
-        ax.imshow(img_nuclei, cmap='gray')
-        ax.imshow(self.segments, cmap=plt.cm.jet)
-        plt.show()
+#        fig, ax = plt.subplots(1,1)
+#        ax.imshow(img_nuclei, cmap='gray')
+#        ax.imshow(self.segments, cmap=plt.cm.jet)
+#        plt.show()
+
+        return self
 
     def bounding_ellipse(self, bounding_n_neighbours=4, bounding_radial_slack=0.0):
         '''Construct bounding ellipse around each nucleus
@@ -280,13 +282,13 @@ class ConfocalCellSegmentor(_ConfocalMaskSegmentor):
         self.segments = watershed(invert(img), markers=nuclei_segments, mask=cell_mask, compactness=0)
         self.cmp_mask_segments()
 
-        self.fill_holes_in_masks()
-        for cell_counter, the_mask in self.items():
-            print ('AA:{}'.format(cell_counter))
-            fig, ax = plt.subplots(1,2)
-            ax[0].imshow(img, cmap='gray')
-            ax[0].imshow(the_mask, alpha=0.5, cmap=plt.cm.jet)
-            ax[1].imshow(cell_mask)
-            plt.show()
+#        self.fill_holes_in_masks()
+#        for cell_counter, the_mask in self.items():
+#            print ('AA:{}'.format(cell_counter))
+#            fig, ax = plt.subplots(1,2)
+#            ax[0].imshow(img, cmap='gray')
+#            ax[0].imshow(the_mask, alpha=0.5, cmap=plt.cm.jet)
+#            ax[1].imshow(cell_mask)
+#            plt.show()
 
         return self
