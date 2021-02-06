@@ -66,11 +66,14 @@ class _ConfocalWorker(object):
         self.reader_func = reader_func
         self.reader_func_kwargs = reader_func_kwargs
 
+        self.current_image = None
+
     def retrieve_image(self, img_path):
         '''Bla bla
 
         '''
-        return self.reader_func(img_path, **self.reader_func_kwargs)
+        self.current_image = self.reader_func(img_path, **self.reader_func_kwargs)
+        return self.current_image
 
 class _ConfocalAreaMasker(_ConfocalWorker):
     '''Bla bla
@@ -278,17 +281,20 @@ class ConfocalCellSegmentor(_ConfocalMaskSegmentor):
 
         img = self.retrieve_image(img_path)
         img[nuclei_mask] = 255
+        self.current_image = img
 
         self.segments = watershed(invert(img), markers=nuclei_segments, mask=cell_mask, compactness=0)
         self.cmp_mask_segments()
 
-#        self.fill_holes_in_masks()
-#        for cell_counter, the_mask in self.items():
-#            print ('AA:{}'.format(cell_counter))
-#            fig, ax = plt.subplots(1,2)
-#            ax[0].imshow(img, cmap='gray')
-#            ax[0].imshow(the_mask, alpha=0.5, cmap=plt.cm.jet)
-#            ax[1].imshow(cell_mask)
-#            plt.show()
+        #for cell_counter, the_mask in self.items():
+        #    print ('AA:{}'.format(cell_counter))
+        #    fig, ax = plt.subplots(1,2)
+        #    ax[0].imshow(self.current_image, cmap='gray')
+        #    ax[0].imshow(the_mask, alpha=0.5, cmap=plt.cm.jet)
+        #    ax[1].imshow(cell_mask)
+        #    plt.show()
 
         return self
+
+
+
