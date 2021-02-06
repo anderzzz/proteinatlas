@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 def check_after_apply(f):
     def wrapper(*args):
-        if args[0].image is None:
+        if args[0].raw_image is None:
             raise RuntimeError('Before call to shaper methods, the `apply_to` method has to be called')
         return f(*args)
     return wrapper
@@ -21,19 +21,17 @@ class ImageShapeMaker(object):
         self.reader_func = reader_func
         self.reader_func_kwargs = reader_func_kwargs
 
-        self.image = None
-        self.masks = None
-        self.cell_images_reshaped = {}
+        self.raw_image = None
+        self.imgs_reshaped = {}
 
     def apply_to(self, img_path, masks):
         '''Bla bla
 
         '''
-        self.image = self.reader_func(img_path, **self.reader_func_kwargs)
-        self.masks = masks
-        for cell_counter, cell_mask in self.masks.items():
-            img_single_cell = np.where(cell_mask, self.image, -1)
-            self.cell_images_reshaped[cell_counter] = img_single_cell
+        self.raw_image = self.reader_func(img_path, **self.reader_func_kwargs)
+        for cell_counter, cell_mask in masks.items():
+            img_single_cell = np.where(cell_mask, self.raw_image, -1)
+            self.imgs_reshaped[cell_counter] = img_single_cell
 
         return self
 
@@ -84,9 +82,9 @@ class ImageShapeMaker(object):
                     slack_high = 0
                     low = y_min - dd
 
-                if y_max + dd + 1 > self.image.shape[0]:
-                    slack_low = y_max + dd + 1 - self.image.shape[0]
-                    high = self.image.shape[0]
+                if y_max + dd + 1 > self.raw_image.shape[0]:
+                    slack_low = y_max + dd + 1 - self.raw_image.shape[0]
+                    high = self.raw_image.shape[0]
                 else:
                     slack_low = 0
                     high = y_max + dd + 1
@@ -102,9 +100,9 @@ class ImageShapeMaker(object):
                     slack_high = 0
                     low = x_min - dd
 
-                if x_max + dd + 1 > self.image.shape[0]:
-                    slack_low = x_max + dd + 1 - self.image.shape[0]
-                    high = self.image.shape[0]
+                if x_max + dd + 1 > self.raw_image.shape[0]:
+                    slack_low = x_max + dd + 1 - self.raw_image.shape[0]
+                    high = self.raw_image.shape[0]
                 else:
                     slack_low = 0
                     high = x_max + dd + 1
@@ -120,7 +118,7 @@ class ImageShapeMaker(object):
 
         '''
         _rect_cell_imgs = {}
-        for cell_counter, cell_outline in self.cell_images_reshaped.items():
+        for cell_counter, cell_outline in self.imgs_reshaped.items():
             inside_mask_inds = np.argwhere(cell_outline > -1)
 
             x_min = min(inside_mask_inds[:,0])
@@ -134,7 +132,7 @@ class ImageShapeMaker(object):
             #ax.imshow(_rect_cell_imgs[cell_counter], cmap=plt.cm.jet)
             #plt.show()
 
-        self.cell_images_reshaped = _rect_cell_imgs
+        self.imgs_reshaped = _rect_cell_imgs
 
         return self
 

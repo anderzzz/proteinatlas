@@ -21,12 +21,8 @@ masker_cell = ConfocalCellAreaMasker(img_data_accessor=local_imgs, reader_func=i
                                      body_luminosity=0, body_object_area=100, body_hole_area=100)
 segmentor_cell = ConfocalCellSegmentor(img_data_accessor=local_imgs, reader_func=imread)
 
-#segmentor_nuc = ConfocalNucleusSegmentor(img_data_accessor=local_imgs, reader_func=imread, edge_width=10)
-#segmentor_cell = ConfocalCellSegmentor(img_data_accessor=local_imgs, reader_func=imread,
-#                                       nucleus_segmentor=segmentor_nuc,
-#                                       body_luminosity=30, body_hole_area=20000, body_object_area=10000)
 shaper_cell = ImageShapeMaker(img_data_accessor=local_imgs, reader_func=imread)
-viz = Visualiser(cmap='gray')
+viz = Visualiser(cmap='gray', cmap_set_under='green')
 
 df_labels = parse_labels('./data_tmp/train.csv')
 
@@ -46,13 +42,12 @@ for cell_id, data_path_collection in local_imgs.items():
     segmentor_cell.make_segments_(img_er, masker_cell.mask, masker_nuc.mask, segmentor_nuc.segments)
 
     segmentor_cell.del_segments(segmentor_nuc.get_segments_on_edge())
+    segmentor_cell.fill_holes_in_masks()
 
-    raise RuntimeError
-
-    shaper_cell.apply_to(img_prot, segmentor_cell.mask).outline()
-    percell_prot = shaper_cell.cell_images_reshaped.copy()
-    shaper_cell.apply_to(img_er, segmentor_cell.mask).outline()
-    percell_er = shaper_cell.cell_images_reshaped.copy()
+    shaper_cell.apply_to(img_prot, segmentor_cell.mask_segment).outline_rect()
+    percell_prot = shaper_cell.imgs_reshaped.copy()
+    shaper_cell.apply_to(img_er, segmentor_cell.mask_segment).outline_rect()
+    percell_er = shaper_cell.imgs_reshaped.copy()
 
     for cell_counter in percell_prot.keys():
         viz.show_(percell_prot[cell_counter], percell_er[cell_counter])
