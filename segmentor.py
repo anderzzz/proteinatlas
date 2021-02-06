@@ -2,6 +2,7 @@
 
 '''
 import numpy as np
+from collections import Counter
 
 from skimage.segmentation import watershed, random_walker
 from skimage.draw import ellipse
@@ -55,19 +56,6 @@ def bounding_ellipses(ellipses_nuclei, n_neighbour_nuclei=1, radial_slack=0.0):
 
     return ellipses_bounding
 
-def nuclei_edge_condition(nuclei_id_pixels, thickness=1):
-    '''Bla bla
-
-    '''
-    top_slice = nuclei_id_pixels[:thickness, :]
-    bottom_slice = nuclei_id_pixels[-thickness:, :]
-    left_slice = nuclei_id_pixels[:, :thickness]
-    right_slice = nuclei_id_pixels[:, -thickness:]
-
-    on_edge = np.union1d(np.unique(right_slice), np.union1d(np.unique(left_slice), np.union1d(np.unique(top_slice), np.unique(bottom_slice))))
-    on_edge = [x for x in on_edge if x != 0]
-
-    return on_edge
 
 class _ConfocalWorker(object):
     '''Bla bla
@@ -145,9 +133,47 @@ class _ConfocalMaskSegmentor(_ConfocalWorker):
         for cell_counter in range(1, np.max(self.segments) + 1):
             self.mask_segment_[cell_counter] = self.segments == cell_counter
 
+    def del_segments(self, delete_list):
+        '''Bla bla
+
+        '''
+        for cell_counter in delete_list:
+            self.mask_segment_.pop(cell_counter, None)
+
+    def get_segments_on_edge(self, edge_thickness=1):
+        '''Bla bla
+
+        '''
+        top_slice = self.segments[:edge_thickness, :]
+        bottom_slice = self.segments[-edge_thickness:, :]
+        left_slice = self.segments[:, :edge_thickness]
+        right_slice = self.segments[:, -edge_thickness:]
+        on_edge = np.union1d(np.unique(right_slice),
+                             np.union1d(np.unique(left_slice),
+                                        np.union1d(np.unique(top_slice),
+                                                   np.unique(bottom_slice))))
+
+        return [x for x in on_edge if x != 0]
+
+    def fill_holes_in_masks(self):
+        '''Bla bla
+
+        '''
+        new_mask_dict = {}
+        for cell_counter, segment_mask in self.items():
+            hole_free_segment_mask = ndimage.binary_fill_holes(segment_mask)
+            new_mask_dict[cell_counter] = hole_free_segment_mask
+        self.mask_segment_ = new_mask_dict
+
+    @property
+    def area_segments(self):
+        cell_counter_counter = Counter(self.segments.flatten())
+        cell_counter_counter['background'] = cell_counter_counter.pop(0)
+        return cell_counter_counter
+
     @property
     def n_segments(self):
-        len(self.mask_segment_)
+        return len(self.mask_segment_)
 
     def __getitem__(self, item):
         return self.mask_segment_[item]
@@ -216,6 +242,7 @@ class ConfocalNucleusSegmentor(_ConfocalMaskSegmentor):
         '''
         return bounding_ellipses(self.segments_ellipse, bounding_n_neighbours, bounding_radial_slack)
 
+
 class ConfocalCellAreaMasker(_ConfocalAreaMasker):
     '''Bla bla
     
@@ -241,46 +268,19 @@ class ConfocalCellSegmentor(_ConfocalMaskSegmentor):
     '''Bla bla
 
     '''
-    def __init__(self, img_data_accessor, reader_func, reader_func_kwargs={},
-                 prune_min_area=500, prune_entire_nucleus=True):
+    def __init__(self, img_data_accessor, reader_func, reader_func_kwargs={}):
 
         super().__init__(img_data_accessor, reader_func, reader_func_kwargs)
-
-        self.prune_min_area = prune_min_area
-        self.prune_entire_nucleus = prune_entire_nucleus
-
-    def prune(self):
-        '''Bla bla
-
-        '''
-        delete_list = []
-
-        for cell_counter in self.mask.keys():
-            if np.sum(self.mask[cell_counter]) < self.prune_min_area:
-                delete_list.append(cell_counter)
-
-        if self.prune_entire_nucleus:
-            nuclei_at_edge = nuclei_edge_condition(self.nucleus_segmentor.segments_id)
-            delete_list.extend(nuclei_at_edge)
-
-        for cell_counter_discard in delete_list:
-            self.mask.pop(cell_counter_discard, None)
-
-        return self
 
     def make_segments_(self, img_path, cell_mask, nuclei_mask, nuclei_segments):
 
         img = self.retrieve_image(img_path)
         img[nuclei_mask] = 255
-        print (nuclei_segments)
 
         self.segments = watershed(invert(img), markers=nuclei_segments, mask=cell_mask, compactness=0)
         self.cmp_mask_segments()
-        print (np.max(self.segments))
-        print (self.mask_segment_.keys())
 
-        print (nuclei_segments)
-
+        self.fill_holes_in_masks()
         for cell_counter, the_mask in self.items():
             print ('AA:{}'.format(cell_counter))
             fig, ax = plt.subplots(1,2)
@@ -289,55 +289,4 @@ class ConfocalCellSegmentor(_ConfocalMaskSegmentor):
             ax[1].imshow(cell_mask)
             plt.show()
 
-        #for cell_counter, ellipse_b in nucleus_bounding_ellipses.items():
-#
-#            # Mask for content within bounding ellipse (and within frame of image)
-#            ellipse_kwargs = dict(zip(('r', 'c', 'r_radius', 'c_radius', 'rotation'), ellipse_b.params))
-#            ellipse_kwargs['rotation'] = ellipse_kwargs['rotation'] * -1.0
-#            rr, cc = ellipse(**ellipse_kwargs)
-#
-#            mask_inside_frame = ((rr >= 0) & (rr < height)) & ((cc >= 0) & (cc < width))
-#            rr = rr[mask_inside_frame]
-#            cc = cc[mask_inside_frame]
-#
-#            mask_cell_area = np.zeros(img_er.shape, dtype=np.bool)
-#            mask_cell_area[rr, cc] = True
-#            img_mask_slice = np.where(mask_cell_area, img_thrs, False)
-##            mask_cell_area = np.zeros(img_cell.shape, dtype=np.bool)
-##            mask_cell_area[self.nucleus_segmentor.segments_id == cell_counter + 1] = True
-#
-#            # Initialize cell labels, one unique value per nucleus within bounding ellipse mask
-#            labels = np.copy(self.nucleus_segmentor.segments_id)
-#            #labels[~mask_cell_area] = -1
-#
-#            #segmented = random_walker(~img_thrs, labels, beta=130)
-#            segmented = watershed(invert(img_er), labels, compactness=0, mask=img_mask_slice)
-#            #self.mask[cell_counter] = segmented == labels[ellipse_kwargs['r'], ellipse_kwargs['c']]
-#            self.mask[cell_counter] = segmented == cell_counter
-#
-#            fig, ax = plt.subplots(1,3)
-#            ax[0].imshow(img_er, cmap='gray')
-#            ax[0].imshow(self.mask[cell_counter], alpha=0.5, cmap=plt.cm.jet)
-#            ax[1].imshow(img_thrs)
-#            ax[2].imshow(img_mask_slice)
-#            plt.show()
-
-        #fig, ax = plt.subplots(2,2)
-        #ax[0,0].imshow(img_cell, cmap='gray')
-        #ax[0,0].imshow(self.mask[5], alpha=0.5, cmap=plt.cm.jet)
-        #ax[0,1].imshow(img_cell, cmap='gray')
-        #ax[0,1].imshow(self.mask[9], alpha=0.5, cmap=plt.cm.jet)
-        #ax[1,0].imshow(img_cell, cmap='gray')
-        #ax[1,0].imshow(self.mask[14], alpha=0.5, cmap=plt.cm.jet)
-        #ax[1,1].imshow(img_cell, cmap='gray')
-        #ax[1,1].imshow(self.mask[15], alpha=0.5, cmap=plt.cm.jet)
-        #plt.show()
-
-        #fig, ax = plt.subplots(1,1)
-        #div_mask = np.zeros(img_cell.shape)
-        #for cell_counter, mask in self.mask.items():
-        #    div_mask[mask] = cell_counter
-        #ax.imshow(img_cell, cmap='gray')
-        #ax.imshow(div_mask, alpha=0.5, cmap=plt.cm.jet)
-        #plt.show()
         return self

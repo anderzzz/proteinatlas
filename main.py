@@ -37,14 +37,15 @@ for cell_id, data_path_collection in local_imgs.items():
 
     img_nuc = data_path_collection['nuclei']
     img_er = data_path_collection['ER']
-    img_tube = data_path_collection['red']
+    img_tube = data_path_collection['microtubule']
     img_prot = data_path_collection['green']
 
     masker_nuc.make_mask_(img_nuc)
     segmentor_nuc.make_segments_(img_nuc, masker_nuc.mask)
-
     masker_cell.make_mask_(img_tube, masker_nuc.mask)
     segmentor_cell.make_segments_(img_er, masker_cell.mask, masker_nuc.mask, segmentor_nuc.segments)
+
+    segmentor_cell.del_segments(segmentor_nuc.get_segments_on_edge())
 
     raise RuntimeError
 
