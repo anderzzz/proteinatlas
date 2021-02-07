@@ -4,9 +4,20 @@
 from os import listdir
 from enum import Enum
 
+from numpy import ndarray
+from skimage.io import imread
 import pandas as pd
 
 class ImgMetaDataError(Exception):
+    pass
+
+class ImgNotNumpyArrayError(Exception):
+    pass
+
+class ImgNotGrayScaleError(Exception):
+    pass
+
+class ImgNotAllowedShape(Exception):
     pass
 
 
@@ -32,7 +43,8 @@ class ImgMetaData(Enum):
                  16 : 'Cytosol',
                  17 : 'Vesicles and punctate cytosolic patterns',
                  18 : 'Negative'}
-    n_categories = len(organelle)
+    n_categories = 19
+    allowed_img_sizes = [(1728, 1728), (2048, 2048), (3072, 3072)]
 
     @classmethod
     def semantic_from_label(cls, label):
@@ -121,6 +133,47 @@ class ImgDataFromLocalDisk(object):
 factory = ImgDataAccessorFactory()
 factory.register_src_type('local disk', ImgDataFromLocalDisk)
 
+
+class ImgDataRetriever(object):
+    '''Bla bla
+
+    '''
+    def __init__(self, img_reader_function=None, img_reader_function_kwargs={},
+                 img_postprocessor=None, img_postprocessor_kwargs={}, img_postprocessor_returns_image=False):
+        self.img_reader_function = img_reader_function
+        self.img_reader_function_kwargs = img_reader_function_kwargs
+        self.img_postprocessor = img_postprocessor
+        self.img_postprocessor_kwargs = img_postprocessor_kwargs
+        self.img_postprocessor_returns_image = img_postprocessor_returns_image
+
+    def retrieve(self, img_ref):
+        '''Bla bla
+
+        '''
+        _img = self.img_reader_function(img_ref, **self.img_reader_function_kwargs)
+        if not self.img_postprocessor is None:
+            ret_value = self.img_postprocessor(_img, **self.img_postprocessor_kwargs)
+            if self.img_postprocessor_returns_image:
+                _img = ret_value
+
+        return _img
+
+
+def _check_type_dimension(arr):
+    '''Bla bla
+
+    '''
+    if not isinstance(arr, ndarray):
+        raise ImgNotNumpyArrayError('Image retrieved not an instance of the numpy array format')
+
+    if not len(arr.shape) == 2:
+        raise ImgNotGrayScaleError('Image retrieved not gray scale')
+
+    if not arr.shape in ImgMetaData.allowed_img_sizes.value:
+        raise ImgNotAllowedShape('Image retrieved not of allowed shape: {}'.format(arr.shape))
+
+skimage_img_retriever = ImgDataRetriever(img_reader_function=imread,
+                                         img_postprocessor=_check_type_dimension)
 
 def parse_labels(path, n_categories=ImgMetaData.n_categories.value):
     '''Parse CSV with weak cell class labels

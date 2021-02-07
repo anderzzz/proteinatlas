@@ -15,11 +15,9 @@ class ImageShapeMaker(object):
     '''Bla bla
 
     '''
-    def __init__(self, img_data_accessor, reader_func, reader_func_kwargs={}):
+    def __init__(self, img_retriever):
 
-        self.img_data_accessor = img_data_accessor
-        self.reader_func = reader_func
-        self.reader_func_kwargs = reader_func_kwargs
+        self.img_retriever = img_retriever
 
         self.raw_image = None
         self.imgs_reshaped = {}
@@ -28,7 +26,7 @@ class ImageShapeMaker(object):
         '''Bla bla
 
         '''
-        self.raw_image = self.reader_func(img_path, **self.reader_func_kwargs)
+        self.raw_image = self.img_retriever.retrieve(img_path)
         for cell_counter, cell_mask in masks.items():
             img_single_cell = np.where(cell_mask, self.raw_image, -1)
             self.imgs_reshaped[cell_counter] = img_single_cell

@@ -61,30 +61,21 @@ class _ConfocalWorker(object):
     '''Bla bla
 
     '''
-    def __init__(self, img_data_accessor, reader_func, reader_func_kwargs):
-        self.img_data_accessor = img_data_accessor
-        self.reader_func = reader_func
-        self.reader_func_kwargs = reader_func_kwargs
+    def __init__(self, img_retriever):
+        self.img_retriever = img_retriever
 
         self.current_image = None
-
-    def retrieve_image(self, img_path):
-        '''Bla bla
-
-        '''
-        self.current_image = self.reader_func(img_path, **self.reader_func_kwargs)
-        return self.current_image
 
 class _ConfocalAreaMasker(_ConfocalWorker):
     '''Bla bla
 
     '''
-    def __init__(self, img_data_accessor, reader_func, reader_func_kwargs,
+    def __init__(self, img_retriever,
                        edge_width=None,
                        body_luminosity=None, body_object_area=None, body_hole_area=None,
                        edge_luminosity=None, edge_object_area=None, edge_hole_area=None):
 
-        super().__init__(img_data_accessor, reader_func, reader_func_kwargs)
+        super().__init__(img_retriever)
         self.edge_width = edge_width
         self.body_luminosity = body_luminosity
         self.body_object_area = body_object_area
@@ -124,9 +115,9 @@ class _ConfocalMaskSegmentor(_ConfocalWorker):
     '''Bla bla
 
     '''
-    def __init__(self, img_data_accessor, reader_func, reader_func_kwargs):
+    def __init__(self, img_retriever):
 
-        super().__init__(img_data_accessor, reader_func, reader_func_kwargs)
+        super().__init__(img_retriever)
 
         self.mask_segment = {}
         self.segments = None
@@ -190,12 +181,12 @@ class ConfocalNucleusAreaMasker(_ConfocalAreaMasker):
     '''Bla bla
     
     '''
-    def __init__(self, img_data_accessor, reader_func, reader_func_kwargs={},
+    def __init__(self, img_retriever,
                  edge_width=None,
                  body_luminosity=25, body_object_area=5000, body_hole_area=5000,
                  edge_luminosity=25, edge_object_area=6, edge_hole_area=5000):
 
-        super().__init__(img_data_accessor, reader_func, reader_func_kwargs,
+        super().__init__(img_retriever,
                          edge_width,
                          body_luminosity, body_object_area, body_hole_area,
                          edge_luminosity, edge_object_area, edge_hole_area)
@@ -204,7 +195,7 @@ class ConfocalNucleusAreaMasker(_ConfocalAreaMasker):
         '''Bla bla
         
         '''
-        img = self.retrieve_image(img_path)
+        img = self.img_retriever.retrieve(img_path)
         self.mask = self.denoise_and_thrs(img)
         
 
@@ -212,10 +203,10 @@ class ConfocalNucleusSegmentor(_ConfocalMaskSegmentor):
     '''Bla bla
 
     '''
-    def __init__(self, img_data_accessor, reader_func, reader_func_kwargs={},
+    def __init__(self, img_retriever,
                  fit_ellipses=True):
 
-        super().__init__(img_data_accessor, reader_func, reader_func_kwargs)
+        super().__init__(img_retriever)
         self.fit_ellipses = fit_ellipses
 
         self.segments_ellipse = {}
@@ -227,7 +218,7 @@ class ConfocalNucleusSegmentor(_ConfocalMaskSegmentor):
         as any remaining contiguous set of bright points.
 
         '''
-        img_nuclei = self.retrieve_image(img_nuclei_path)
+        img_nuclei = self.img_retriever.retrieve(img_nuclei_path)
 
         self.segments, _ = ndimage.label(nuclei_mask)
         self.cmp_mask_segments()
@@ -252,17 +243,17 @@ class ConfocalCellAreaMasker(_ConfocalAreaMasker):
     '''Bla bla
     
     '''
-    def __init__(self, img_data_accessor, reader_func, reader_func_kwargs={},
+    def __init__(self, img_retriever,
                        body_luminosity=0, body_object_area=100, body_hole_area=100):
         
-        super().__init__(img_data_accessor, reader_func, reader_func_kwargs,
+        super().__init__(img_retriever,
                          body_luminosity=body_luminosity, body_object_area=body_object_area, body_hole_area=body_hole_area)
         
     def make_mask_(self, img_path, nuclei_mask):
         '''Bla bla
         
         '''
-        img = self.reader_func(img_path, **self.reader_func_kwargs)
+        img = self.img_retriever.retrieve(img_path)
         img[nuclei_mask] = 255
         
         img_thrs = self.denoise_and_thrs(img)
@@ -273,13 +264,13 @@ class ConfocalCellSegmentor(_ConfocalMaskSegmentor):
     '''Bla bla
 
     '''
-    def __init__(self, img_data_accessor, reader_func, reader_func_kwargs={}):
+    def __init__(self, img_retriever):
 
-        super().__init__(img_data_accessor, reader_func, reader_func_kwargs)
+        super().__init__(img_retriever)
 
     def make_segments_(self, img_path, cell_mask, nuclei_mask, nuclei_segments):
 
-        img = self.retrieve_image(img_path)
+        img = self.img_retriever.retrieve(img_path)
         img[nuclei_mask] = 255
         self.current_image = img
 

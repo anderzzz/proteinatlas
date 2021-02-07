@@ -1,9 +1,7 @@
 '''Test runs
 
 '''
-from skimage.io import imread
-
-from train_data import parse_labels, factory
+from train_data import parse_labels, factory, skimage_img_retriever
 from segmentor import ConfocalNucleusAreaMasker, ConfocalNucleusSegmentor, \
                       ConfocalCellAreaMasker, ConfocalCellSegmentor
 from shaper import ImageShapeMaker
@@ -11,17 +9,17 @@ from visualiser import Visualiser
 
 local_imgs = factory.create('local disk', src_dir='./data_tmp')
 
-masker_nuc = ConfocalNucleusAreaMasker(img_data_accessor=local_imgs, reader_func=imread,
+masker_nuc = ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever,
                                        edge_width=10,
                                        body_luminosity=25, body_object_area=5000, body_hole_area=5000,
                                        edge_luminosity=25, edge_object_area=6, edge_hole_area=5000)
-segmentor_nuc = ConfocalNucleusSegmentor(img_data_accessor=local_imgs, reader_func=imread)
+segmentor_nuc = ConfocalNucleusSegmentor(img_retriever=skimage_img_retriever)
 
-masker_cell = ConfocalCellAreaMasker(img_data_accessor=local_imgs, reader_func=imread,
+masker_cell = ConfocalCellAreaMasker(img_retriever=skimage_img_retriever,
                                      body_luminosity=0, body_object_area=100, body_hole_area=100)
-segmentor_cell = ConfocalCellSegmentor(img_data_accessor=local_imgs, reader_func=imread)
+segmentor_cell = ConfocalCellSegmentor(img_retriever=skimage_img_retriever)
 
-shaper_cell = ImageShapeMaker(img_data_accessor=local_imgs, reader_func=imread)
+shaper_cell = ImageShapeMaker(img_retriever=skimage_img_retriever)
 viz = Visualiser(cmap='gray', cmap_set_under='green')
 
 df_labels = parse_labels('./data_tmp/train.csv')
@@ -44,9 +42,9 @@ for cell_id, data_path_collection in local_imgs.items():
     segmentor_cell.del_segments(segmentor_nuc.get_segments_on_edge())
     segmentor_cell.fill_holes_in_masks()
 
-    shaper_cell.apply_to(img_prot, segmentor_cell.mask_segment).outline_rect()
+    shaper_cell.apply_to(img_prot, segmentor_cell.mask_segment).outline()
     percell_prot = shaper_cell.imgs_reshaped.copy()
-    shaper_cell.apply_to(img_er, segmentor_cell.mask_segment).outline_rect()
+    shaper_cell.apply_to(img_er, segmentor_cell.mask_segment).outline()
     percell_er = shaper_cell.imgs_reshaped.copy()
 
     for cell_counter in percell_prot.keys():
