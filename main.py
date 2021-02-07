@@ -40,7 +40,9 @@ for cell_id, data_path_collection in local_imgs.items():
     segmentor_cell.make_segments_(img_er, masker_cell.mask, masker_nuc.mask, segmentor_nuc.segments)
 
     segmentor_cell.del_segments(segmentor_nuc.get_segments_on_edge())
-    segmentor_cell.fill_holes_in_masks()
+    segmentor_cell.fill_holes()
+
+    viz.show_segments_overlay(skimage_img_retriever.retrieve(img_tube), segmentor_cell.segments)
 
     shaper_cell.apply_to(img_prot, segmentor_cell.mask_segment).outline()
     percell_prot = shaper_cell.imgs_reshaped.copy()

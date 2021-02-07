@@ -31,3 +31,10 @@ class Visualiser(object):
 
         plt.show()
 
+    def show_segments_overlay(self, background_img, segments, alpha=0.5):
+
+        fig, ax = plt.subplots(1,1)
+        ax.imshow(background_img, cmap='gray')
+        ax.imshow(segments, alpha=alpha)
+        plt.show()
+

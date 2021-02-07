@@ -133,6 +133,7 @@ class _ConfocalMaskSegmentor(_ConfocalWorker):
         '''
         for cell_counter in delete_list:
             self.mask_segment.pop(cell_counter, None)
+            self.segments[self.segments == cell_counter] = 0
 
     def get_segments_on_edge(self, edge_thickness=1):
         '''Bla bla
@@ -149,7 +150,7 @@ class _ConfocalMaskSegmentor(_ConfocalWorker):
 
         return [x for x in on_edge if x != 0]
 
-    def fill_holes_in_masks(self):
+    def fill_holes(self):
         '''Bla bla
 
         '''
@@ -157,6 +158,9 @@ class _ConfocalMaskSegmentor(_ConfocalWorker):
         for cell_counter, segment_mask in self.items():
             hole_free_segment_mask = ndimage.binary_fill_holes(segment_mask)
             new_mask_dict[cell_counter] = hole_free_segment_mask
+
+            self.segments[hole_free_segment_mask] = cell_counter
+
         self.mask_segment = new_mask_dict
 
     @property
