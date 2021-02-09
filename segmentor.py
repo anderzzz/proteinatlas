@@ -13,12 +13,15 @@ from scipy import ndimage
 
 import matplotlib.pyplot as plt
 
-def ellipse_fits(img_labelled):
+def ellipse_fits(img_labelled, exclusion_list=[0]):
     '''Bla bla
 
     '''
     ellipses_by_label = {}
-    for k_label in range(1, img_labelled.max() + 1):
+    for k_label in np.unique(img_labelled):
+        if k_label in exclusion_list:
+            continue
+
         rows, cols = np.where(img_labelled == k_label)
         coords = np.stack([rows, cols]).T
         ellipse = EllipseModel()
@@ -124,7 +127,9 @@ class _ConfocalMaskSegmentor(_ConfocalWorker):
 
     def cmp_mask_segments(self):
 
-        for cell_counter in range(1, np.max(self.segments) + 1):
+        for cell_counter in np.unique(self.segments):
+            if cell_counter == 0:
+                continue
             self.mask_segment[cell_counter] = self.segments == cell_counter
 
     def del_segments(self, delete_list):
@@ -290,6 +295,97 @@ class ConfocalCellSegmentor(_ConfocalMaskSegmentor):
         #    plt.show()
 
         return self
+
+class ConfocalNucleusSweepAreaMasker(object):
+    '''Bla bla
+
+    '''
+    def __init__(self, img_retriever, maskers_nuc=[]):
+
+        self.img_retriever = img_retriever
+        self.maskers_nuc = maskers_nuc
+        self.mask = []
+
+    def make_mask_(self, img):
+        '''Bla bla
+
+        '''
+        self.mask = []
+        for masker in self.maskers_nuc:
+            masker.make_mask_(img)
+            self.mask.append(masker)
+
+class ConfocalNucleusSweepSegmentor(ConfocalNucleusSegmentor):
+    '''Bla bla
+
+    '''
+    def __init__(self, img_retriever, fit_ellipses=True):
+
+        super().__init__(img_retriever, fit_ellipses=False)
+        self.fit_ellipses = fit_ellipses
+
+    def make_segments_(self, img_path, nuclei_mask):
+        '''Bla bla
+
+        '''
+        segments_sweeps = []
+        for masker in nuclei_mask:
+            super(ConfocalNucleusSweepSegmentor, self).make_segments_(img_path, masker.mask)
+            segments_sweeps.append(self.segments.copy())
+
+            fig, ax = plt.subplots(1,1)
+            ax.imshow(self.img_retriever.retrieve(img_path), cmap='gray')
+            ax.imshow(segments_sweeps[-1], alpha=0.5)
+            plt.show()
+
+        self.segments = self._merge_sweeps(segments_sweeps, img_path)
+        print (self.segments)
+        self.cmp_mask_segments()
+        print (self.mask_segment.keys())
+        if self.fit_ellipses:
+            self.segments_ellipse = ellipse_fits(self.segments)
+
+        return self
+
+    def _merge_sweeps(self, segments_sweeps, img_path):
+        '''Bla bla
+
+        '''
+        if len(segments_sweeps) == 1:
+            keys = np.unique(segments_sweeps[0])
+            vals = np.array(range(len(keys)))
+            mapping_ar = np.zeros(keys.max() + 1, dtype=int)
+            mapping_ar[keys] = vals
+
+            return mapping_ar[segments_sweeps[0]]
+
+        segments_conformed = segments_sweeps.pop(0)
+
+        lower_bg_thrs_segments = segments_sweeps[0]
+        print ('Q1:{}'.format(np.unique(segments_conformed)))
+        print ('Q2:{}'.format(np.unique(lower_bg_thrs_segments)))
+        new_segment_id = max(lower_bg_thrs_segments.max(), segments_conformed.max())
+        for segment_counter in range(1, lower_bg_thrs_segments.max() + 1):
+            index_segment_lower = np.argwhere(lower_bg_thrs_segments == segment_counter)
+            segments_conformed_ids = np.unique(segments_conformed[index_segment_lower[:,0], index_segment_lower[:,1]])
+            nonzero_ids = [x for x in segments_conformed_ids if x!= 0]
+
+            print (segment_counter, len(nonzero_ids))
+
+            if len(nonzero_ids) == 0:
+                new_segment_id += 1
+                segments_conformed = np.where(lower_bg_thrs_segments == segment_counter, new_segment_id, segments_conformed)
+
+            elif len(nonzero_ids) == 1:
+                segments_conformed = np.where(lower_bg_thrs_segments == segment_counter, nonzero_ids[0], segments_conformed)
+
+        segments_sweeps_next = [segments_conformed] + segments_sweeps[1:]
+        fig, ax = plt.subplots(1,1)
+        ax.imshow(self.img_retriever.retrieve(img_path), cmap='gray')
+        ax.imshow(segments_sweeps_next[0], cmap='jet', alpha=0.5)
+        plt.show()
+
+        return self._merge_sweeps(segments_sweeps_next, img_path)
 
 
 

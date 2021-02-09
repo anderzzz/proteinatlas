@@ -4,6 +4,7 @@
 from os import listdir
 from enum import Enum
 
+import numpy as np
 from numpy import ndarray
 from skimage.io import imread
 import pandas as pd
@@ -156,6 +157,7 @@ class ImgDataRetriever(object):
             if self.img_postprocessor_returns_image:
                 _img = ret_value
 
+        print (_img.max())
         return _img
 
 
@@ -172,8 +174,26 @@ def _check_type_dimension(arr):
     if not arr.shape in ImgMetaData.allowed_img_sizes.value:
         raise ImgNotAllowedShape('Image retrieved not of allowed shape: {}'.format(arr.shape))
 
+def _rescale_max(arr, max_val=255):
+    '''Bla bla
+
+    '''
+    arr_tmp = arr.astype('float64')
+    arr_tmp = np.round(arr_tmp * max_val / arr.max())
+    return arr_tmp.astype('uint8')
+
+def _rescale_check(arr):
+    '''Bla bla
+
+    '''
+    _check_type_dimension(arr)
+    return _rescale_max(arr)
+
 skimage_img_retriever = ImgDataRetriever(img_reader_function=imread,
                                          img_postprocessor=_check_type_dimension)
+skimage_img_retriever_rescaler = ImgDataRetriever(img_reader_function=imread,
+                                                  img_postprocessor=_rescale_check,
+                                                  img_postprocessor_returns_image=True)
 
 def parse_labels(path, n_categories=ImgMetaData.n_categories.value):
     '''Parse CSV with weak cell class labels
