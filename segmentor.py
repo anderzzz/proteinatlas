@@ -296,24 +296,32 @@ class ConfocalCellSegmentor(_ConfocalMaskSegmentor):
 
         return self
 
+
 class ConfocalNucleusSweepAreaMasker(object):
     '''Bla bla
 
     '''
-    def __init__(self, img_retriever, maskers_nuc=[]):
+    def __init__(self, img_retriever, maskers_sweep=[]):
 
         self.img_retriever = img_retriever
-        self.maskers_nuc = maskers_nuc
-        self.mask = []
+        self.maskers_sweep = maskers_sweep
+#        self.mask_sweeps = []
+        self.mask = None
 
-    def make_mask_(self, img):
+    def make_mask_sweep_(self, img):
         '''Bla bla
 
         '''
-        self.mask = []
-        for masker in self.maskers_nuc:
+        for masker in self.maskers_sweep:
             masker.make_mask_(img)
-            self.mask.append(masker)
+#            self.mask_sweeps.append(masker.mask)
+
+    def infer_mask_from_segments_(self, segments):
+        '''Bla bla
+
+        '''
+        self.mask = np.where(segments != 0, True, False)
+
 
 class ConfocalNucleusSweepSegmentor(ConfocalNucleusSegmentor):
     '''Bla bla
@@ -333,15 +341,13 @@ class ConfocalNucleusSweepSegmentor(ConfocalNucleusSegmentor):
             super(ConfocalNucleusSweepSegmentor, self).make_segments_(img_path, masker.mask)
             segments_sweeps.append(self.segments.copy())
 
-            fig, ax = plt.subplots(1,1)
-            ax.imshow(self.img_retriever.retrieve(img_path), cmap='gray')
-            ax.imshow(segments_sweeps[-1], alpha=0.5)
-            plt.show()
+#            fig, ax = plt.subplots(1,1)
+#            ax.imshow(self.img_retriever.retrieve(img_path), cmap='gray')
+#            ax.imshow(segments_sweeps[-1], alpha=0.5)
+#            plt.show()
 
         self.segments = self._merge_sweeps(segments_sweeps, img_path)
-        print (self.segments)
         self.cmp_mask_segments()
-        print (self.mask_segment.keys())
         if self.fit_ellipses:
             self.segments_ellipse = ellipse_fits(self.segments)
 
@@ -362,15 +368,11 @@ class ConfocalNucleusSweepSegmentor(ConfocalNucleusSegmentor):
         segments_conformed = segments_sweeps.pop(0)
 
         lower_bg_thrs_segments = segments_sweeps[0]
-        print ('Q1:{}'.format(np.unique(segments_conformed)))
-        print ('Q2:{}'.format(np.unique(lower_bg_thrs_segments)))
         new_segment_id = max(lower_bg_thrs_segments.max(), segments_conformed.max())
         for segment_counter in range(1, lower_bg_thrs_segments.max() + 1):
             index_segment_lower = np.argwhere(lower_bg_thrs_segments == segment_counter)
             segments_conformed_ids = np.unique(segments_conformed[index_segment_lower[:,0], index_segment_lower[:,1]])
             nonzero_ids = [x for x in segments_conformed_ids if x!= 0]
-
-            print (segment_counter, len(nonzero_ids))
 
             if len(nonzero_ids) == 0:
                 new_segment_id += 1
@@ -380,10 +382,10 @@ class ConfocalNucleusSweepSegmentor(ConfocalNucleusSegmentor):
                 segments_conformed = np.where(lower_bg_thrs_segments == segment_counter, nonzero_ids[0], segments_conformed)
 
         segments_sweeps_next = [segments_conformed] + segments_sweeps[1:]
-        fig, ax = plt.subplots(1,1)
-        ax.imshow(self.img_retriever.retrieve(img_path), cmap='gray')
-        ax.imshow(segments_sweeps_next[0], cmap='jet', alpha=0.5)
-        plt.show()
+#        fig, ax = plt.subplots(1,1)
+#        ax.imshow(self.img_retriever.retrieve(img_path), cmap='gray')
+#        ax.imshow(segments_sweeps_next[0], cmap='jet', alpha=0.5)
+#        plt.show()
 
         return self._merge_sweeps(segments_sweeps_next, img_path)
 

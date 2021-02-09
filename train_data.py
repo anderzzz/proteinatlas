@@ -157,7 +157,6 @@ class ImgDataRetriever(object):
             if self.img_postprocessor_returns_image:
                 _img = ret_value
 
-        print (_img.max())
         return _img
 
 
