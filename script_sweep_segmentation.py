@@ -10,32 +10,38 @@ from visualiser import Visualiser
 
 local_imgs = factory.create('local disk', src_dir='./data_tmp')
 
+MIN_SIZE_NUCLEUS_OBJECT = 10000
+MIN_HOLE_ALLOWED = 5000
+EDGE_WIDTH = 50
+MIN_SIZE_NUCLEUS_OBJECT_AT_EDGE = 1000
 
 maskers_sweep_nuc = [
     ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever,
                               edge_width=None,
-                              body_luminosity=50, body_object_area=10000, body_hole_area=5000),
+                              body_luminosity=50,
+                              body_object_area=MIN_SIZE_NUCLEUS_OBJECT, body_hole_area=MIN_HOLE_ALLOWED),
     ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever,
                               edge_width=None,
-                              body_luminosity=30, body_object_area=10000, body_hole_area=5000),
+                              body_luminosity=30,
+                              body_object_area=MIN_SIZE_NUCLEUS_OBJECT, body_hole_area=MIN_HOLE_ALLOWED),
     ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever,
                               edge_width=None,
-                              body_luminosity=10, body_object_area=10000, body_hole_area=5000),
+                              body_luminosity=20,
+                              body_object_area=MIN_SIZE_NUCLEUS_OBJECT, body_hole_area=MIN_HOLE_ALLOWED),
     ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever,
                               edge_width=None,
-                              body_luminosity=5, body_object_area=10000, body_hole_area=5000),
+                              body_luminosity=10,
+                              body_object_area=MIN_SIZE_NUCLEUS_OBJECT, body_hole_area=MIN_HOLE_ALLOWED),
     ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever,
-                              edge_width=10,
-                              body_luminosity=5, body_object_area=10000, body_hole_area=5000,
-                              edge_luminosity=20, edge_object_area=1000, edge_hole_area=5000),
+                              edge_width=None,
+                              body_luminosity=5,
+                              body_object_area=MIN_SIZE_NUCLEUS_OBJECT, body_hole_area=MIN_HOLE_ALLOWED),
     ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever,
-                              edge_width=20,
-                              body_luminosity=5, body_object_area=10000, body_hole_area=5000,
-                              edge_luminosity=20, edge_object_area=1000, edge_hole_area=5000),
-    ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever,
-                              edge_width=50,
-                              body_luminosity=5, body_object_area=10000, body_hole_area=5000,
-                              edge_luminosity=20, edge_object_area=1000, edge_hole_area=5000)
+                              edge_width=EDGE_WIDTH,
+                              body_luminosity=255,
+                              body_object_area=MIN_SIZE_NUCLEUS_OBJECT, body_hole_area=MIN_HOLE_ALLOWED,
+                              edge_luminosity=5,
+                              edge_object_area=MIN_SIZE_NUCLEUS_OBJECT_AT_EDGE, edge_hole_area=MIN_HOLE_ALLOWED)
                ]
 masker_nuc = ConfocalNucleusSweepAreaMasker(img_retriever=skimage_img_retriever,
                                             maskers_sweep=maskers_sweep_nuc)
@@ -51,7 +57,7 @@ viz = Visualiser(cmap='gray', cmap_set_under='green')
 df_labels = parse_labels('./data_tmp/train.csv')
 for cell_id, data_path_collection in local_imgs.items():
 
-    if not '0020af' in cell_id:
+    if not '006cd' in cell_id:
         continue
 
     img_nuc = data_path_collection['nuclei']
@@ -67,8 +73,11 @@ for cell_id, data_path_collection in local_imgs.items():
     masker_cell.make_mask_(img_tube, masker_nuc.mask)
     segmentor_cell.make_segments_(img_er, masker_cell.mask, masker_nuc.mask, segmentor_nuc.segments)
 
-    segmentor_cell.del_segments(segmentor_nuc.get_segments_on_edge())
+    #segmentor_cell.del_segments(segmentor_nuc.get_segments_on_edge())
     segmentor_cell.fill_holes()
+
+    # DELETE TINY CELLS
+    print (segmentor_cell.area_segments)
 
     viz.show_segments_overlay(skimage_img_retriever.retrieve(img_tube), segmentor_cell.segments)
 

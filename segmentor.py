@@ -253,10 +253,12 @@ class ConfocalCellAreaMasker(_ConfocalAreaMasker):
     
     '''
     def __init__(self, img_retriever,
-                       body_luminosity=0, body_object_area=100, body_hole_area=100):
+                       body_luminosity=0, body_object_area=100, body_hole_area=100,
+                       fuzzy_boundary=12):
         
         super().__init__(img_retriever,
                          body_luminosity=body_luminosity, body_object_area=body_object_area, body_hole_area=body_hole_area)
+        self.fuzzy_boundary = fuzzy_boundary
         
     def make_mask_(self, img_path, nuclei_mask):
         '''Bla bla
@@ -266,7 +268,7 @@ class ConfocalCellAreaMasker(_ConfocalAreaMasker):
         img[nuclei_mask] = 255
         
         img_thrs = self.denoise_and_thrs(img)
-        self.mask = morphology.binary_dilation(img_thrs, selem=morphology.disk(12))
+        self.mask = morphology.binary_dilation(img_thrs, selem=morphology.disk(self.fuzzy_boundary))
 
 
 class ConfocalCellSegmentor(_ConfocalMaskSegmentor):
@@ -382,10 +384,10 @@ class ConfocalNucleusSweepSegmentor(ConfocalNucleusSegmentor):
                 segments_conformed = np.where(lower_bg_thrs_segments == segment_counter, nonzero_ids[0], segments_conformed)
 
         segments_sweeps_next = [segments_conformed] + segments_sweeps[1:]
-#        fig, ax = plt.subplots(1,1)
-#        ax.imshow(self.img_retriever.retrieve(img_path), cmap='gray')
-#        ax.imshow(segments_sweeps_next[0], cmap='jet', alpha=0.5)
-#        plt.show()
+        fig, ax = plt.subplots(1,1)
+        ax.imshow(self.img_retriever.retrieve(img_path), cmap='gray')
+        ax.imshow(segments_sweeps_next[0], cmap='jet', alpha=0.5)
+        plt.show()
 
         return self._merge_sweeps(segments_sweeps_next, img_path)
 
