@@ -1,7 +1,7 @@
 '''Test runs
 
 '''
-from train_data import parse_labels, factory, skimage_img_retriever
+from train_data import parse_labels, image_factory, skimage_img_retriever
 from segmentor import ConfocalNucleusAreaMasker, ConfocalNucleusSegmentor, \
                       ConfocalCellAreaMasker, ConfocalCellSegmentor, \
                       ConfocalNucleusSweepSegmentor, ConfocalNucleusSweepAreaMasker
@@ -9,7 +9,7 @@ from shaper import ImageShapeMaker
 from visualiser import Visualiser
 from mask_coco_encoder import encode_binary_mask
 
-local_imgs = factory.create('local disk', folder='./data_tmp')
+local_imgs = image_factory.create('local disk', folder='./data_tmp')
 
 MIN_SIZE_NUCLEUS_OBJECT = 10000
 MIN_HOLE_ALLOWED = 5000

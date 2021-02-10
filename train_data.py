@@ -1,4 +1,23 @@
-'''Accessors of the image data
+'''Objects for accessing the image raw data of cells from the human protein atlas.
+
+The first set of objects manage the image file paths and their meta data. The objects are best accessed using
+a factory object. Hence,
+
+> from train_data import image_factory
+> img_files = image_factory.create('kaggle notebook', folder='hpa-single-cell-image-classification/train')
+
+creates a dictionary-like object `img_files` that associates a cell ID key with a dictionary containing the
+file paths to the images with different staining.
+
+The second set of objects manage the image retrieval given path. Already created retriever objects are:
+
+`skimage_img_retriever_rescaler` : reads gray scale image file, checks for basic errors, and rescale intensity such
+that maximum value is 255, and returns Numpy array representation
+
+`skimage_img_retriever` : reads gray scale image file, checks for basic errors, and returns Numpy array representation.
+
+The third set of objects manage the training data ground truth labels. That includes the convenience function
+`parse_labels`
 
 '''
 from os import listdir
@@ -9,20 +28,24 @@ from numpy import ndarray
 from skimage.io import imread
 import pandas as pd
 
+#
+# Section 1: Factory method to retrieve raw data file paths
+#
 class ImgMetaDataError(Exception):
-    pass
-
-class ImgNotNumpyArrayError(Exception):
-    pass
-
-class ImgNotGrayScaleError(Exception):
-    pass
-
-class ImgNotAllowedShape(Exception):
     pass
 
 
 class ImgMetaData(Enum):
+    '''Enumerations of image content meta data.
+
+    Attributes:
+        suffix : The colours of the cell staining
+        staining : The object strained, in identical order to `suffix`
+        organelle : Integer class label and corresponding cell organelle
+        n_categories : Number of unique organelle class labels
+        allowed_img_sizes : Expected dimensions of images
+
+    '''
     suffix = ['blue', 'green', 'red', 'yellow']
     staining = ['nuclei', 'protein_of_interest', 'microtubule', 'ER']
     organelle = {0 : 'Nucleoplasm',
@@ -63,7 +86,7 @@ class ImgMetaData(Enum):
 
 
 class ImgDataAccessorFactory(object):
-    '''Bla bla
+    '''Factory method to provide common interface to raw image data access from diverse sources
 
     '''
     def __init__(self):
@@ -81,7 +104,7 @@ class ImgDataAccessorFactory(object):
 
 
 class _ImgDataFromSomewhere(object):
-    '''Bla bla
+    '''Parent class for raw image data accessor
 
     '''
     def __init__(self, folder, img_suffix='png'):
@@ -91,7 +114,10 @@ class _ImgDataFromSomewhere(object):
         self.cell_ids = None
 
     def make_cell_img_ids(self, imgs):
-        '''Bla bla
+        '''Collect all cell image IDs
+
+        Raises:
+            ImgMetaDataError : In case cell id found for which not all image types (blue, green, red, yellow) are found
 
         '''
         cell_ids_by_suffix = {}
@@ -113,7 +139,12 @@ class _ImgDataFromSomewhere(object):
         return cell_ids_by_suffix[ImgMetaData.suffix.value[0]]
 
     def image_types_collector(self, cell_id, full_path_formatter):
-        '''Bla bla
+        '''Collect all paths to images associated with given cell ID
+
+        Args:
+            cell_id : Cell id to collect file paths for
+            full_path_formatter : Function that given the cell ID and the colour suffix returns a formatted string
+                appropriate to how the data bucket is organized
 
         '''
         if not cell_id in self.cell_ids:
@@ -141,7 +172,11 @@ class _ImgDataFromSomewhere(object):
 
 
 class ImgDataFromLocalDisk(_ImgDataFromSomewhere):
-    '''Bla bla
+    '''Factory class for local disk storage of image raw data
+
+    Args:
+        folder : parent folder string, e.g. "./my_data"
+        img_suffix : image file suffix (default: "png")
 
     '''
     def __init__(self, folder, img_suffix='png'):
@@ -154,7 +189,7 @@ class ImgDataFromLocalDisk(_ImgDataFromSomewhere):
         self.cell_ids = self.make_cell_img_ids(imgs)
 
     def file_path_formatter(self, cell_id, suffix):
-        '''Bla bla
+        '''Formatter of path, given cell_id and file colour suffix
 
         '''
         return '{}/{}_{}.{}'.format(self.folder, cell_id, suffix, self.img_suffix)
@@ -162,23 +197,13 @@ class ImgDataFromLocalDisk(_ImgDataFromSomewhere):
     def __getitem__(self, cell_id):
         return self.image_types_collector(cell_id, self.file_path_formatter)
 
-#    def __getitem__(self, cell_id):
-#        if not cell_id in self.cell_ids:
-#            raise KeyError('Unknown cell id: {}'.format(cell_id))
-#
-#        full_paths = {}
-#        for suffix in ImgMetaData.suffix.value:
-#            full_path = '{}/{}_{}.{}'.format(self.folder, cell_id, suffix, self.img_suffix)
-#            full_paths[suffix] = full_path
-#
-#            staining = ImgMetaData.semantic_from_label(suffix)
-#            full_paths[staining] = full_path
-#
-#        return full_paths
-
 
 class ImgDataFromKaggleNotebook(_ImgDataFromSomewhere):
-    '''Bla bla
+    '''Factory class for Kaggle Notebook storage of image raw data
+
+    Args:
+        folder : parent folder string, e.g. "some_competition_data/train"
+        img_suffix : image file suffix (default: "png")
 
     '''
     kaggle_input_root = '/kaggle/input'
@@ -193,7 +218,7 @@ class ImgDataFromKaggleNotebook(_ImgDataFromSomewhere):
         self.cell_ids = self.make_cell_img_ids(imgs)
 
     def file_path_formatter(self, cell_id, suffix):
-        '''Bla bla
+        '''Formatter of path, given cell_id and file colour suffix
 
         '''
         return '{}/{}/{}_{}.{}'.format(self.kaggle_input_root, self.folder, cell_id, suffix, self.img_suffix)
@@ -202,13 +227,29 @@ class ImgDataFromKaggleNotebook(_ImgDataFromSomewhere):
         return self.image_types_collector(cell_id, self.file_path_formatter)
 
 
-factory = ImgDataAccessorFactory()
-factory.register_src_type('local disk', ImgDataFromLocalDisk)
-factory.register_src_type('kaggle notebook', ImgDataFromKaggleNotebook)
+image_factory = ImgDataAccessorFactory()
+image_factory.register_src_type('local disk', ImgDataFromLocalDisk)
+image_factory.register_src_type('kaggle notebook', ImgDataFromKaggleNotebook)
+
+#
+# Section 2: Extracting the image data at a given path, along with basic error checking and simple post processing
+#
+class ImgNotNumpyArrayError(Exception):
+    pass
+
+class ImgNotGrayScaleError(Exception):
+    pass
+
+class ImgNotAllowedShape(Exception):
+    pass
 
 
 class ImgDataRetriever(object):
-    '''Bla bla
+    '''Retrieve image data at a path, plus error checking and basic post processing
+
+    Args:
+        img_reader_function : function that can read the image file, like `imread` from `skimage` library
+        img_reader_function_kwargs : additional arguments to the image reader function
 
     '''
     def __init__(self, img_reader_function=None, img_reader_function_kwargs={},
@@ -220,7 +261,7 @@ class ImgDataRetriever(object):
         self.img_postprocessor_returns_image = img_postprocessor_returns_image
 
     def retrieve(self, img_ref):
-        '''Bla bla
+        '''Retrieve, and optionally error check and post-process image raw data
 
         '''
         _img = self.img_reader_function(img_ref, **self.img_reader_function_kwargs)
@@ -266,6 +307,9 @@ skimage_img_retriever_rescaler = ImgDataRetriever(img_reader_function=imread,
                                                   img_postprocessor=_rescale_check,
                                                   img_postprocessor_returns_image=True)
 
+#
+# Section 3: Objects dealing with the tabular training data labels
+#
 def parse_labels(path, n_categories=ImgMetaData.n_categories.value):
     '''Parse CSV with weak cell class labels
 
