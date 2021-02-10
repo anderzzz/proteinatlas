@@ -13,6 +13,9 @@ from scipy import ndimage
 
 import matplotlib.pyplot as plt
 
+class ConfocalAbsentCellCounterError(Exception):
+    pass
+
 def ellipse_fits(img_labelled, exclusion_list=[0]):
     '''Bla bla
 
@@ -132,28 +135,59 @@ class _ConfocalMaskSegmentor(_ConfocalWorker):
                 continue
             self.mask_segment[cell_counter] = self.segments == cell_counter
 
-    def del_segments(self, delete_list):
+    def del_segment(self, id, error_if_absent=False):
         '''Bla bla
 
         '''
-        for cell_counter in delete_list:
-            self.mask_segment.pop(cell_counter, None)
-            self.segments[self.segments == cell_counter] = 0
+        removed = self.mask_segment.pop(id, None)
+        if error_if_absent and removed is None:
+            raise ConfocalAbsentCellCounterError('Cell id {} absent so cannot be deleted'.format(id))
+        self.segments[self.segments == id] = 0
 
-    def get_segments_on_edge(self, edge_thickness=1):
+    def get_segments_on_edge(self, edge_thickness=1, exclude_null=True):
+        '''Bla bla
+
+        '''
+        edge_pixels = self.get_edge_pixels(edge_thickness)
+        on_edge = np.unique(edge_pixels)
+        if exclude_null:
+            on_edge = [x for x in on_edge if x != 0]
+
+        return on_edge
+
+    def get_segments_areafraction_on_edge(self, edge_thickness):
+        '''Bla bla
+
+        '''
+        edge_areas = Counter(self.get_edge_pixels(edge_thickness))
+        edge_areas.pop(0, None)
+        total_areas = self.get_area_segments()
+
+        fraction_on_edge = {}
+        for cell_counter in edge_areas:
+            fraction_on_edge[cell_counter] = edge_areas[cell_counter] / total_areas[cell_counter]
+
+        return fraction_on_edge
+
+    def get_edge_pixels(self, edge_thickness):
         '''Bla bla
 
         '''
         top_slice = self.segments[:edge_thickness, :]
         bottom_slice = self.segments[-edge_thickness:, :]
-        left_slice = self.segments[:, :edge_thickness]
-        right_slice = self.segments[:, -edge_thickness:]
-        on_edge = np.union1d(np.unique(right_slice),
-                             np.union1d(np.unique(left_slice),
-                                        np.union1d(np.unique(top_slice),
-                                                   np.unique(bottom_slice))))
+        left_slice = self.segments[edge_thickness:-edge_thickness, :edge_thickness]
+        right_slice = self.segments[edge_thickness:-edge_thickness, -edge_thickness:]
 
-        return [x for x in on_edge if x != 0]
+        return np.concatenate([top_slice.flatten(), bottom_slice.flatten(),
+                               left_slice.flatten(), right_slice.flatten()])
+
+    def get_area_segments(self):
+        '''Bla bla
+
+        '''
+        cell_counter_counter = Counter(self.segments.flatten())
+        cell_counter_counter['background'] = cell_counter_counter.pop(0)
+        return cell_counter_counter
 
     def fill_holes(self):
         '''Bla bla
@@ -167,12 +201,6 @@ class _ConfocalMaskSegmentor(_ConfocalWorker):
             self.segments[hole_free_segment_mask] = cell_counter
 
         self.mask_segment = new_mask_dict
-
-    @property
-    def area_segments(self):
-        cell_counter_counter = Counter(self.segments.flatten())
-        cell_counter_counter['background'] = cell_counter_counter.pop(0)
-        return cell_counter_counter
 
     @property
     def n_segments(self):

@@ -15,6 +15,8 @@ MIN_HOLE_ALLOWED = 5000
 EDGE_WIDTH = 50
 MIN_SIZE_NUCLEUS_OBJECT_AT_EDGE = 1000
 MIN_CELL_ALLOWED = 10000
+MAX_EDGE_AREA_FRAC = 0.50
+MIN_CELL_LUMINOSITY = 10
 
 maskers_sweep_nuc = [
     ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever,
@@ -49,7 +51,7 @@ masker_nuc = ConfocalNucleusSweepAreaMasker(img_retriever=skimage_img_retriever,
 segmentor_nuc = ConfocalNucleusSweepSegmentor(img_retriever=skimage_img_retriever)
 
 masker_cell = ConfocalCellAreaMasker(img_retriever=skimage_img_retriever,
-                                     body_luminosity=7, body_object_area=100, body_hole_area=100)
+                                     body_luminosity=MIN_CELL_LUMINOSITY, body_object_area=100, body_hole_area=100)
 segmentor_cell = ConfocalCellSegmentor(img_retriever=skimage_img_retriever)
 
 shaper_cell = ImageShapeMaker(img_retriever=skimage_img_retriever)
@@ -66,20 +68,42 @@ for cell_id, data_path_collection in local_imgs.items():
     img_tube = data_path_collection['microtubule']
     img_prot = data_path_collection['green']
 
+    #
+    # Construct cell nuclei segments
+    #
     masker_nuc.make_mask_sweep_(img_nuc)
     segmentor_nuc.make_segments_(img_nuc, masker_nuc.maskers_sweep)
     masker_nuc.infer_mask_from_segments_(segmentor_nuc.segments)
     viz.show_segments_overlay(skimage_img_retriever.retrieve(img_nuc), segmentor_nuc.segments)
 
+    #
+    # Construct initial generous cell segments
+    #
     masker_cell.make_mask_(img_tube, masker_nuc.mask)
     segmentor_cell.make_segments_(img_er, masker_cell.mask, masker_nuc.mask, segmentor_nuc.segments)
 
-    #segmentor_cell.del_segments(segmentor_nuc.get_segments_on_edge())
-    segmentor_cell.del_segments([cell_counter for cell_counter, area in segmentor_cell.area_segments.items() if area < MIN_CELL_ALLOWED])
+    #
+    # Discard cell segments that by heuristics are not well described
+    #
+    small_area_segments = [cell_counter for cell_counter, area in \
+                               segmentor_cell.get_area_segments().items() \
+                               if area < MIN_CELL_ALLOWED]
+    segments_mostly_on_edge = [cell_counter for cell_counter, area_frac in \
+                                   segmentor_cell.get_segments_areafraction_on_edge(EDGE_WIDTH).items() \
+                                   if area_frac > MAX_EDGE_AREA_FRAC]
+    for cell_counter in small_area_segments + segments_mostly_on_edge:
+        segmentor_cell.del_segment(cell_counter)
+
+    #
+    # Modify cell segments such that they contain no holes
+    #
     segmentor_cell.fill_holes()
 
     viz.show_segments_overlay(skimage_img_retriever.retrieve(img_tube), segmentor_cell.segments)
 
+    #
+    # Reshape image to multiple images fitted to the cell segments
+    #
     shaper_cell.apply_to(img_prot, segmentor_cell.mask_segment).outline()
     percell_prot = shaper_cell.imgs_reshaped.copy()
     shaper_cell.apply_to(img_er, segmentor_cell.mask_segment).outline()
