@@ -384,10 +384,10 @@ class ConfocalNucleusSweepSegmentor(ConfocalNucleusSegmentor):
                 segments_conformed = np.where(lower_bg_thrs_segments == segment_counter, nonzero_ids[0], segments_conformed)
 
         segments_sweeps_next = [segments_conformed] + segments_sweeps[1:]
-        fig, ax = plt.subplots(1,1)
-        ax.imshow(self.img_retriever.retrieve(img_path), cmap='gray')
-        ax.imshow(segments_sweeps_next[0], cmap='jet', alpha=0.5)
-        plt.show()
+#        fig, ax = plt.subplots(1,1)
+#        ax.imshow(self.img_retriever.retrieve(img_path), cmap='gray')
+#        ax.imshow(segments_sweeps_next[0], cmap='jet', alpha=0.5)
+#        plt.show()
 
         return self._merge_sweeps(segments_sweeps_next, img_path)
 
