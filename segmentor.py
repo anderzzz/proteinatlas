@@ -209,6 +209,9 @@ class _ConfocalMaskSegmentor(_ConfocalWorker):
     def __getitem__(self, item):
         return self.mask_segment[item]
 
+    def keys(self):
+        return self.mask_segment.keys()
+
     def items(self):
         for key, value in self.mask_segment.items():
             yield key, value
@@ -282,7 +285,7 @@ class ConfocalCellAreaMasker(_ConfocalAreaMasker):
     '''
     def __init__(self, img_retriever,
                        body_luminosity=0, body_object_area=100, body_hole_area=100,
-                       fuzzy_boundary=12):
+                       fuzzy_boundary=5):
         
         super().__init__(img_retriever,
                          body_luminosity=body_luminosity, body_object_area=body_object_area, body_hole_area=body_hole_area)

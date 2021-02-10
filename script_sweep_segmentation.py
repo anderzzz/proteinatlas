@@ -7,6 +7,7 @@ from segmentor import ConfocalNucleusAreaMasker, ConfocalNucleusSegmentor, \
                       ConfocalNucleusSweepSegmentor, ConfocalNucleusSweepAreaMasker
 from shaper import ImageShapeMaker
 from visualiser import Visualiser
+from mask_coco_encoder import encode_binary_mask
 
 local_imgs = factory.create('local disk', src_dir='./data_tmp')
 
@@ -60,7 +61,7 @@ viz = Visualiser(cmap='gray', cmap_set_under='green')
 df_labels = parse_labels('./data_tmp/train.csv')
 for cell_id, data_path_collection in local_imgs.items():
 
-    if not '006cd' in cell_id:
+    if not '0020af' in cell_id:
         continue
 
     img_nuc = data_path_collection['nuclei']
@@ -80,7 +81,7 @@ for cell_id, data_path_collection in local_imgs.items():
     # Construct initial generous cell segments
     #
     masker_cell.make_mask_(img_tube, masker_nuc.mask)
-    segmentor_cell.make_segments_(img_er, masker_cell.mask, masker_nuc.mask, segmentor_nuc.segments)
+    segmentor_cell.make_segments_(img_tube, masker_cell.mask, masker_nuc.mask, segmentor_nuc.segments)
 
     #
     # Discard cell segments that by heuristics are not well described
@@ -98,6 +99,10 @@ for cell_id, data_path_collection in local_imgs.items():
     # Modify cell segments such that they contain no holes
     #
     segmentor_cell.fill_holes()
+    for cell_counter, mask_segment in segmentor_cell.items():
+        print (cell_counter)
+        print (mask_segment.shape)
+        print (encode_binary_mask(mask_segment))
 
     viz.show_segments_overlay(skimage_img_retriever.retrieve(img_tube), segmentor_cell.segments)
 

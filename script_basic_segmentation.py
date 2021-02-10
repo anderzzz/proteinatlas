@@ -26,7 +26,7 @@ df_labels = parse_labels('./data_tmp/train.csv')
 
 for cell_id, data_path_collection in local_imgs.items():
 
-    if not '006cd' in cell_id:
+    if not '0020ad' in cell_id:
         continue
 
     img_nuc = data_path_collection['nuclei']
@@ -41,14 +41,14 @@ for cell_id, data_path_collection in local_imgs.items():
     masker_cell.make_mask_(img_tube, masker_nuc.mask)
     segmentor_cell.make_segments_(img_er, masker_cell.mask, masker_nuc.mask, segmentor_nuc.segments)
 
-    segmentor_cell.del_segments(segmentor_nuc.get_segments_on_edge())
+    #segmentor_cell.del_segments(segmentor_nuc.get_segments_on_edge())
     segmentor_cell.fill_holes()
 
     viz.show_segments_overlay(skimage_img_retriever.retrieve(img_tube), segmentor_cell.segments)
 
-    shaper_cell.apply_to(img_prot, segmentor_cell.mask_segment).outline()
+    shaper_cell.apply_to(img_prot, segmentor_cell.mask_segment).cut_square()
     percell_prot = shaper_cell.imgs_reshaped.copy()
-    shaper_cell.apply_to(img_er, segmentor_cell.mask_segment).outline()
+    shaper_cell.apply_to(img_er, segmentor_cell.mask_segment).cut_square()
     percell_er = shaper_cell.imgs_reshaped.copy()
 
     for cell_counter in percell_prot.keys():
