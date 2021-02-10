@@ -9,7 +9,7 @@ from shaper import ImageShapeMaker
 from visualiser import Visualiser
 from mask_coco_encoder import encode_binary_mask
 
-local_imgs = factory.create('local disk', src_dir='./data_tmp')
+local_imgs = factory.create('local disk', folder='./data_tmp')
 
 MIN_SIZE_NUCLEUS_OBJECT = 10000
 MIN_HOLE_ALLOWED = 5000
@@ -81,7 +81,7 @@ for cell_id, data_path_collection in local_imgs.items():
     # Construct initial generous cell segments
     #
     masker_cell.make_mask_(img_tube, masker_nuc.mask)
-    segmentor_cell.make_segments_(img_tube, masker_cell.mask, masker_nuc.mask, segmentor_nuc.segments)
+    segmentor_cell.make_segments_(img_er, masker_cell.mask, masker_nuc.mask, segmentor_nuc.segments)
 
     #
     # Discard cell segments that by heuristics are not well described

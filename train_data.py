@@ -80,21 +80,24 @@ class ImgDataAccessorFactory(object):
         return accessor(**kwargs)
 
 
-class ImgDataFromLocalDisk(object):
+class _ImgDataFromSomewhere(object):
     '''Bla bla
 
     '''
-    def __init__(self, src_dir, img_suffix='png'):
-        self.src_dir = src_dir
+    def __init__(self, folder, img_suffix='png'):
+        self.folder = folder
         self.img_suffix = img_suffix
-        len_img_suffix = len(img_suffix) + 1
-        self.src_dir_img_content = [fname[:-len_img_suffix] for fname in listdir(self.src_dir) \
-                                                               if '.{}'.format(img_suffix) in fname[-len_img_suffix:]]
 
+        self.cell_ids = None
+
+    def make_cell_img_ids(self, imgs):
+        '''Bla bla
+
+        '''
         cell_ids_by_suffix = {}
         for suffix in ImgMetaData.suffix.value:
             formatted_suffix = '_{}'.format(suffix)
-            cell_ids = [cell_id.replace(formatted_suffix, '') for cell_id in self.src_dir_img_content if formatted_suffix in cell_id]
+            cell_ids = [cell_id.replace(formatted_suffix, '') for cell_id in imgs if formatted_suffix in cell_id]
             cell_ids_by_suffix[suffix] = cell_ids
 
         for suff1, v1 in cell_ids_by_suffix.items():
@@ -107,21 +110,27 @@ class ImgDataFromLocalDisk(object):
                 if len(diff_21) > 0:
                     raise ImgMetaDataError('Cell images of subtype {} without subtype {} found: {}'.format(suff2, suff1, diff_21))
 
-        self.cell_ids = cell_ids_by_suffix[ImgMetaData.suffix.value[0]]
+        return cell_ids_by_suffix[ImgMetaData.suffix.value[0]]
 
-    def __getitem__(self, cell_id):
+    def image_types_collector(self, cell_id, full_path_formatter):
+        '''Bla bla
+
+        '''
         if not cell_id in self.cell_ids:
             raise KeyError('Unknown cell id: {}'.format(cell_id))
 
         full_paths = {}
         for suffix in ImgMetaData.suffix.value:
-            full_path = '{}/{}_{}.{}'.format(self.src_dir, cell_id, suffix, self.img_suffix)
+            full_path = full_path_formatter(cell_id, suffix)
             full_paths[suffix] = full_path
 
             staining = ImgMetaData.semantic_from_label(suffix)
             full_paths[staining] = full_path
 
         return full_paths
+
+    def __getitem__(self, cell_id):
+        raise NotImplementedError('Should be overridden in child class')
 
     def keys(self):
         return self.cell_ids
@@ -131,8 +140,71 @@ class ImgDataFromLocalDisk(object):
             yield cell_id, self[cell_id]
 
 
+class ImgDataFromLocalDisk(_ImgDataFromSomewhere):
+    '''Bla bla
+
+    '''
+    def __init__(self, folder, img_suffix='png'):
+        super().__init__(folder, img_suffix)
+
+        len_img_suffix = len(self.img_suffix) + 1
+        imgs = [fname[:-len_img_suffix] for fname in listdir(self.folder) \
+                                            if '.{}'.format(img_suffix) in fname[-len_img_suffix:]]
+
+        self.cell_ids = self.make_cell_img_ids(imgs)
+
+    def file_path_formatter(self, cell_id, suffix):
+        '''Bla bla
+
+        '''
+        return '{}/{}_{}.{}'.format(self.folder, cell_id, suffix, self.img_suffix)
+
+    def __getitem__(self, cell_id):
+        return self.image_types_collector(cell_id, self.file_path_formatter)
+
+#    def __getitem__(self, cell_id):
+#        if not cell_id in self.cell_ids:
+#            raise KeyError('Unknown cell id: {}'.format(cell_id))
+#
+#        full_paths = {}
+#        for suffix in ImgMetaData.suffix.value:
+#            full_path = '{}/{}_{}.{}'.format(self.folder, cell_id, suffix, self.img_suffix)
+#            full_paths[suffix] = full_path
+#
+#            staining = ImgMetaData.semantic_from_label(suffix)
+#            full_paths[staining] = full_path
+#
+#        return full_paths
+
+
+class ImgDataFromKaggleNotebook(_ImgDataFromSomewhere):
+    '''Bla bla
+
+    '''
+    kaggle_input_root = '/kaggle/input'
+
+    def __init__(self, folder, img_suffix='png'):
+        super().__init__(folder, img_suffix)
+
+        len_img_suffix = len(self.img_suffix) + 1
+        imgs = [fname[:-len_img_suffix] for fname in listdir('{}/{}'.format(self.kaggle_input_root, self.folder)) \
+                                            if '.{}'.format(img_suffix) in fname[-len_img_suffix:]]
+
+        self.cell_ids = self.make_cell_img_ids(imgs)
+
+    def file_path_formatter(self, cell_id, suffix):
+        '''Bla bla
+
+        '''
+        return '{}/{}/{}_{}.{}'.format(self.kaggle_input_root, self.folder, cell_id, suffix, self.img_suffix)
+
+    def __getitem__(self, cell_id):
+        return self.image_types_collector(cell_id, self.file_path_formatter)
+
+
 factory = ImgDataAccessorFactory()
 factory.register_src_type('local disk', ImgDataFromLocalDisk)
+factory.register_src_type('kaggle notebook', ImgDataFromKaggleNotebook)
 
 
 class ImgDataRetriever(object):
