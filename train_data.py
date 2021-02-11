@@ -322,3 +322,21 @@ def parse_labels(path, n_categories=ImgMetaData.n_categories.value):
     df = df.join(data).drop(columns='Label').set_index('ID')
 
     return df
+
+def only_n_class(df, n_categories=1):
+    '''Create DataFrame with images containing a given number of identified organelle types. If no entries with the
+    number of categories exists, returns `None`.
+
+    '''
+    n_categories_in_row = df.values.sum(axis=1)
+    df_n_categories = df.loc[n_categories_in_row == n_categories]
+
+    if df_n_categories.empty:
+        return None
+
+    else:
+        data = [row.loc[row != 0].index for _, row in df_n_categories.iterrows()]
+        return pd.DataFrame(data, index=df_n_categories.index,
+                                  columns=['class_label_{}'.format(k) for k in range(n_categories)],
+                                  dtype=pd.Int64Dtype())
+
