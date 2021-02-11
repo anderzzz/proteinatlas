@@ -1,7 +1,7 @@
 '''Test runs
 
 '''
-from train_data import parse_labels, image_factory, skimage_img_retriever
+from train_data import parse_labels, only_n_class, image_factory, skimage_img_retriever_rescaler
 from segmentor import ConfocalNucleusAreaMasker, ConfocalNucleusSegmentor, \
                       ConfocalCellAreaMasker, ConfocalCellSegmentor, \
                       ConfocalNucleusSweepSegmentor, ConfocalNucleusSweepAreaMasker
@@ -20,49 +20,53 @@ MAX_EDGE_AREA_FRAC = 0.50
 MIN_CELL_LUMINOSITY = 10
 
 maskers_sweep_nuc = [
-    ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever,
+    ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever_rescaler,
                               edge_width=None,
                               body_luminosity=50,
                               body_object_area=MIN_SIZE_NUCLEUS_OBJECT, body_hole_area=MIN_HOLE_ALLOWED),
-    ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever,
+    ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever_rescaler,
                               edge_width=None,
                               body_luminosity=30,
                               body_object_area=MIN_SIZE_NUCLEUS_OBJECT, body_hole_area=MIN_HOLE_ALLOWED),
-    ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever,
+    ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever_rescaler,
                               edge_width=None,
                               body_luminosity=20,
                               body_object_area=MIN_SIZE_NUCLEUS_OBJECT, body_hole_area=MIN_HOLE_ALLOWED),
-    ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever,
+    ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever_rescaler,
                               edge_width=None,
                               body_luminosity=10,
                               body_object_area=MIN_SIZE_NUCLEUS_OBJECT, body_hole_area=MIN_HOLE_ALLOWED),
-    ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever,
-                              edge_width=None,
-                              body_luminosity=5,
-                              body_object_area=MIN_SIZE_NUCLEUS_OBJECT, body_hole_area=MIN_HOLE_ALLOWED),
-    ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever,
+#    ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever_rescaler,
+#                              edge_width=None,
+#                              body_luminosity=5,
+#                              body_object_area=MIN_SIZE_NUCLEUS_OBJECT, body_hole_area=MIN_HOLE_ALLOWED),
+    ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever_rescaler,
                               edge_width=EDGE_WIDTH,
                               body_luminosity=255,
                               body_object_area=MIN_SIZE_NUCLEUS_OBJECT, body_hole_area=MIN_HOLE_ALLOWED,
                               edge_luminosity=5,
                               edge_object_area=MIN_SIZE_NUCLEUS_OBJECT_AT_EDGE, edge_hole_area=MIN_HOLE_ALLOWED)
                ]
-masker_nuc = ConfocalNucleusSweepAreaMasker(img_retriever=skimage_img_retriever,
+masker_nuc = ConfocalNucleusSweepAreaMasker(img_retriever=skimage_img_retriever_rescaler,
                                             maskers_sweep=maskers_sweep_nuc)
-segmentor_nuc = ConfocalNucleusSweepSegmentor(img_retriever=skimage_img_retriever)
+segmentor_nuc = ConfocalNucleusSweepSegmentor(img_retriever=skimage_img_retriever_rescaler)
 
-masker_cell = ConfocalCellAreaMasker(img_retriever=skimage_img_retriever,
+masker_cell = ConfocalCellAreaMasker(img_retriever=skimage_img_retriever_rescaler,
                                      body_luminosity=MIN_CELL_LUMINOSITY, body_object_area=100, body_hole_area=100)
-segmentor_cell = ConfocalCellSegmentor(img_retriever=skimage_img_retriever)
+segmentor_cell = ConfocalCellSegmentor(img_retriever=skimage_img_retriever_rescaler)
 
-shaper_cell = ImageShapeMaker(img_retriever=skimage_img_retriever)
+shaper_cell = ImageShapeMaker(img_retriever=skimage_img_retriever_rescaler)
 viz = Visualiser(cmap='gray', cmap_set_under='green')
 
 df_labels = parse_labels('./data_tmp/train.csv')
+df_only_mitochondria = only_n_class(df_labels, 1)
+cell_id_only_mitochondria = df_only_mitochondria.loc[df_only_mitochondria['class_label_0'] == 14].index.to_list()
 for cell_id, data_path_collection in local_imgs.items():
 
-    if not '0020af' in cell_id:
+    if not cell_id in cell_id_only_mitochondria:
         continue
+
+    print ('Processing: {}'.format(cell_id))
 
     img_nuc = data_path_collection['nuclei']
     img_er = data_path_collection['ER']
@@ -75,7 +79,7 @@ for cell_id, data_path_collection in local_imgs.items():
     masker_nuc.make_mask_sweep_(img_nuc)
     segmentor_nuc.make_segments_(img_nuc, masker_nuc.maskers_sweep)
     masker_nuc.infer_mask_from_segments_(segmentor_nuc.segments)
-    viz.show_segments_overlay(skimage_img_retriever.retrieve(img_nuc), segmentor_nuc.segments)
+    viz.show_segments_overlay(skimage_img_retriever_rescaler.retrieve(img_nuc), segmentor_nuc.segments)
 
     #
     # Construct initial generous cell segments
@@ -104,7 +108,7 @@ for cell_id, data_path_collection in local_imgs.items():
         print (mask_segment.shape)
         print (encode_binary_mask(mask_segment))
 
-    viz.show_segments_overlay(skimage_img_retriever.retrieve(img_tube), segmentor_cell.segments)
+    viz.show_segments_overlay(skimage_img_retriever_rescaler.retrieve(img_tube), segmentor_cell.segments)
 
     #
     # Reshape image to multiple images fitted to the cell segments
@@ -121,4 +125,4 @@ for cell_id, data_path_collection in local_imgs.items():
     print (df_labels.loc[cell_id])
 
 
-    raise RuntimeError
+#    raise RuntimeError
