@@ -22,6 +22,7 @@ The third set of objects manage the training data ground truth labels. That incl
 '''
 from os import listdir
 from enum import Enum
+from copy import deepcopy
 
 import numpy as np
 from numpy import ndarray
@@ -339,4 +340,29 @@ def only_n_class(df, n_categories=1):
         return pd.DataFrame(data, index=df_n_categories.index,
                                   columns=['class_label_{}'.format(k) for k in range(n_categories)],
                                   dtype=pd.Int64Dtype())
+
+def contrast_split(df, n_categories):
+    '''Split DataFrame into a positive label and negative label parts.
+
+    If multiple categories provided, then in the negative label part all rows have the select columns as negatives.
+    Therefore rows with mixed positive and negative labels in the select columns are in neither of the two returned
+    DataFrames.
+
+    '''
+    if isinstance(n_categories, int):
+        split_categories = (n_categories,)
+
+    elif isinstance(n_categories, (list, tuple, set)):
+        split_categories = n_categories
+
+    else:
+        raise ValueError('The `n_categories` should be either integer class label, or iterable of integer class labels')
+
+    df_pos = deepcopy(df)
+    df_neg = deepcopy(df)
+    for category in split_categories:
+        df_pos = df_pos.loc[df_pos[category] == 1]
+        df_neg = df_neg.loc[df_neg[category] == 0]
+
+    return df_pos, df_neg
 
