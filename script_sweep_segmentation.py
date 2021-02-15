@@ -1,7 +1,7 @@
 '''Test runs
 
 '''
-from train_data import parse_labels, only_n_class, image_factory, skimage_img_retriever_rescaler
+from train_data import parse_labels, only_n_class, image_factory, skimage_img_retriever_rescaler, contrast_split
 from segmentor import ConfocalNucleusAreaMasker, ConfocalNucleusSegmentor, \
                       ConfocalCellAreaMasker, ConfocalCellSegmentor, \
                       ConfocalNucleusSweepSegmentor, ConfocalNucleusSweepAreaMasker
@@ -59,6 +59,7 @@ shaper_cell = ImageShapeMaker(img_retriever=skimage_img_retriever_rescaler)
 viz = Visualiser(cmap='gray', cmap_set_under='green')
 
 df_labels = parse_labels('./data_tmp/train.csv')
+df1, df2 = contrast_split(df_labels, [14,15])
 df_only_mitochondria = only_n_class(df_labels, 1)
 cell_id_only_mitochondria = df_only_mitochondria.loc[df_only_mitochondria['class_label_0'] == 14].index.to_list()
 for cell_id, data_path_collection in local_imgs.items():
