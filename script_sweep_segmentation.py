@@ -114,9 +114,9 @@ for cell_id, data_path_collection in local_imgs.items():
     #
     # Reshape image to multiple images fitted to the cell segments
     #
-    shaper_cell.apply_to(img_prot, segmentor_cell.mask_segment).outline()
+    shaper_cell.apply_to(img_prot, segmentor_cell.mask_segment).cut_square()
     percell_prot = shaper_cell.imgs_reshaped.copy()
-    shaper_cell.apply_to(img_er, segmentor_cell.mask_segment).outline()
+    shaper_cell.apply_to(img_er, segmentor_cell.mask_segment).cut_square()
     percell_er = shaper_cell.imgs_reshaped.copy()
 
     for cell_counter in percell_prot.keys():
