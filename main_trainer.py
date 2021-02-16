@@ -8,7 +8,7 @@ local_imgs = image_factory.create('local disk', folder='./data_tmp')
 df_labels = parse_labels('./data_tmp/train.csv')
 df1, df2 = contrast_split(df_labels, 14)
 
-segment_me_ = CellImageSegmentsTransform()
+segment_me_ = CellImageSegmentsTransform(return_channels=('green','blue','yellow','red'))
 
 for cell_id, data_path_collection in local_imgs.items():
     rets = segment_me_(data_path_collection)

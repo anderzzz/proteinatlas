@@ -2,6 +2,7 @@
 
 '''
 import pandas
+import numpy as np
 
 import torch
 from torch.utils.data import IterableDataset
@@ -32,7 +33,6 @@ class CellImageSegmentsTransform:
                  min_cell_allowed=10000,
                  max_edge_area_frac=0.50,
                  min_cell_luminosity=10,
-                 return_segment_coco=True
                  ):
 
         if all([data_channel_name in ImgMetaData.suffix.value + ImgMetaData.staining.value for data_channel_name in return_channels]):
@@ -47,7 +47,6 @@ class CellImageSegmentsTransform:
         self.min_cell_allowed = min_cell_allowed
         self.max_edge_area_frac = max_edge_area_frac
         self.min_cell_luminosity = min_cell_luminosity
-        self.return_segment_coco = return_segment_coco
 
         maskers_sweep_nuc = [
             ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever_rescaler,
@@ -120,19 +119,23 @@ class CellImageSegmentsTransform:
         # Modify cell segments such that they contain no holes
         self.segmentor_cell.fill_holes()
 
-        segments_coco = []
-        if self.return_segment_coco:
-            for cell_counter, mask_segment in self.segmentor_cell.items():
-                segments_coco.append(encode_binary_mask(mask_segment))
+        self.segments_coco = []
+        for cell_counter, mask_segment in self.segmentor_cell.items():
+            self.segments_coco.append(encode_binary_mask(mask_segment))
 
         #
         # Reshape image to multiple images fitted to the cell segments
-        imgs_return = []
+        imgs_cell = {}
         for channel in self.return_channels:
             self.shaper_cell.apply_to(data_path_collection[channel], self.segmentor_cell.mask_segment).cut_square()
-            imgs_return.append(self.shaper_cell.imgs_reshaped.copy())
+            imgs_channel = self.shaper_cell.imgs_reshaped.copy()
 
-        return tuple(imgs_return + segments_coco)
+            for cell_counter, img_channel in imgs_channel.items():
+                channels_container = imgs_cell.setdefault(cell_counter, [])
+                channels_container.append(img_channel)
+                imgs_cell[cell_counter] = channels_container
+
+        return {cell_counter: np.stack(channels_container) for cell_counter, channels_container in imgs_cell.items()}
 
 
 class TwoCropTransform:
