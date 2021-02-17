@@ -72,40 +72,29 @@ class ImageShapeMaker(object):
             dx = x_max - x_min
             dy = y_max - y_min
             if dx >= dy:
-                dd = int((dx - dy) / 2)
-                if y_min - dd < 0:
-                    slack_high = dd - y_min
-                    low = 0
-                else:
-                    slack_high = 0
-                    low = y_min - dd
-
-                if y_max + dd + 1 > self.raw_image.shape[0]:
-                    slack_low = y_max + dd + 1 - self.raw_image.shape[0]
-                    high = self.raw_image.shape[0]
-                else:
-                    slack_low = 0
-                    high = y_max + dd + 1
-
-                box_cut = cell_outline[x_min:x_max + 1, low - slack_low:high + slack_high]
-
+                n_rows_add = dx - dy
+                high = y_max
+                low = y_min
+                while n_rows_add > 0:
+                    if high < self.raw_image.shape[1]:
+                        high += 1
+                        n_rows_add -= 1
+                    if low > 0:
+                        low -= 1
+                        n_rows_add -= 1
+                box_cut = cell_outline[x_min:x_max, low - n_rows_add:high]
             else:
-                dd = int((dy - dx) / 2)
-                if x_min - dd < 0:
-                    slack_high = dd - x_min
-                    low = 0
-                else:
-                    slack_high = 0
-                    low = x_min - dd
-
-                if x_max + dd + 1 > self.raw_image.shape[0]:
-                    slack_low = x_max + dd + 1 - self.raw_image.shape[0]
-                    high = self.raw_image.shape[0]
-                else:
-                    slack_low = 0
-                    high = x_max + dd + 1
-
-                box_cut = cell_outline[low - slack_low:high + slack_high, y_min:y_max + 1]
+                n_cols_add = dy - dx
+                high = x_max
+                low = x_min
+                while n_cols_add > 0:
+                    if high < self.raw_image.shape[0]:
+                        high += 1
+                        n_cols_add -= 1
+                    if low > 0:
+                        low -= 1
+                        n_cols_add -= 1
+                box_cut = cell_outline[low - n_cols_add:high, y_min:y_max]
 
             return np.where(box_cut < 0, 0, box_cut)
 
