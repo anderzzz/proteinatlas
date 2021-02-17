@@ -10,15 +10,15 @@ from torchvision import transforms
 
 from skimage.util import random_noise
 
-from train_data import parse_labels, skimage_img_retriever_rescaler, ImgMetaData
+from train_data import parse_labels, skimage_img_retriever_rescaler, ImgMetaData, image_factory
 from segmentor import ConfocalNucleusSweepAreaMasker, ConfocalNucleusAreaMasker, \
                       ConfocalNucleusSweepSegmentor, \
                       ConfocalCellAreaMasker, ConfocalCellSegmentor
 from shaper import ImageShapeMaker
 from mask_coco_encoder import encode_binary_mask
 
-MEAN = 0.4
-STD = 0.5
+MEAN = [110]
+STD = [50]
 
 class CellImageSegmentsTransform:
     '''Bla bla
@@ -33,6 +33,7 @@ class CellImageSegmentsTransform:
                  min_cell_allowed=10000,
                  max_edge_area_frac=0.50,
                  min_cell_luminosity=10,
+                 output_tensor=False
                  ):
 
         if all([data_channel_name in ImgMetaData.suffix.value + ImgMetaData.staining.value for data_channel_name in return_channels]):
@@ -47,6 +48,7 @@ class CellImageSegmentsTransform:
         self.min_cell_allowed = min_cell_allowed
         self.max_edge_area_frac = max_edge_area_frac
         self.min_cell_luminosity = min_cell_luminosity
+        self.output_tensor = output_tensor
 
         maskers_sweep_nuc = [
             ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever_rescaler,
@@ -91,7 +93,6 @@ class CellImageSegmentsTransform:
         img_nuc = data_path_collection['nuclei']
         img_er = data_path_collection['ER']
         img_tube = data_path_collection['microtubule']
-        img_prot = data_path_collection['green']
 
         #
         # Construct cell nuclei segments
@@ -119,12 +120,12 @@ class CellImageSegmentsTransform:
         # Modify cell segments such that they contain no holes
         self.segmentor_cell.fill_holes()
 
-        self.segments_coco = []
+        self.segments_coco = {}
         for cell_counter, mask_segment in self.segmentor_cell.items():
-            self.segments_coco.append(encode_binary_mask(mask_segment))
+            self.segments_coco[cell_counter] = encode_binary_mask(mask_segment)
 
         #
-        # Reshape image to multiple images fitted to the cell segments
+        # Reshape image to multiple images fitted to the cell segments and stack selected image channels
         imgs_cell = {}
         for channel in self.return_channels:
             self.shaper_cell.apply_to(data_path_collection[channel], self.segmentor_cell.mask_segment).cut_square()
@@ -137,7 +138,6 @@ class CellImageSegmentsTransform:
 
         return {cell_counter: np.stack(channels_container) for cell_counter, channels_container in imgs_cell.items()}
 
-
 class TwoCropTransform:
     """Create two crops of the same image"""
     def __init__(self, transform):
@@ -146,42 +146,101 @@ class TwoCropTransform:
     def __call__(self, x):
         return [self.transform(x), self.transform(x)]
 
-class CellSegmentGrayOneClassDataset(IterableDataset):
+class CellImageSegmentOneClassDataset(IterableDataset):
     '''Bla bla
 
     '''
     def __init__(self,
                  data_source_type='local disk',
                  data_source_folder=None,
-                 data_label_folder=None,
+                 data_label_file=None,
+                 cell_id_subset=None,
                  batch_size=64,
                  square_size=224,
                  gray_noise_range=0.05):
-        super(CellSegmentGrayDataset, self).__init__()
+        super(CellImageSegmentOneClassDataset, self).__init__()
 
         self.data_source_type = data_source_type
         self.data_source_folder = data_source_folder
-        self.data_label_folder = data_label_folder
+        self.data_label_file = data_label_file
+        self.cell_id_subset = cell_id_subset
         self.batch_size = batch_size
         self.gray_noise_range = gray_noise_range
         self.square_size = square_size
 
-        if not self.data_label_folder is None:
-            df_label = parse_labels(self.data_label_folder)
+        self.local_imgs = image_factory.create(self.data_source_type, folder=self.data_source_folder)
+        if not self.data_label_file is None:
+            self.df_label = parse_labels(self.data_label_file)
+        else:
+            raise ValueError('Ground truth labels file missing')
+        self.cell_id_ok = lambda x: True if self.cell_id_subset is None else (True if x in self.cell_id_subset else False)
 
-        self.train_transform = transforms.Compose([
+        self.img_batch = CellImageSegmentBatch(batch_size)
+
+        random_transform = transforms.Compose([
             transforms.RandomResizedCrop(size=self.square_size, scale=(0.2, 1.)),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomApply([
-                transforms.Lambda(self._speckle_noise)
-            ], p=0.8),
-            transforms.ToTensor(),
+            #transforms.RandomApply([
+            #    transforms.Lambda(self._speckle_noise)
+            #], p=0.8),
+            #transforms.ToTensor(),
             transforms.Normalize(mean=MEAN, std=STD)
         ])
+        self.train_aug_transform = TwoCropTransform(random_transform)
+        self.resizer = transforms.Resize(size=self.square_size)
+
+        self.segmentor_shaper_transform = CellImageSegmentsTransform()
 
     def _speckle_noise(self, img):
-        random_noise(img, mode='speckle', mean=0, var=self.gray_noise_range, clip=True)
+        return random_noise(img, mode='speckle', mean=0, var=self.gray_noise_range, clip=True)
+
+    def _add_to_batch(self, data_path_collection):
+        imgs_sq_segment = self.segmentor_shaper_transform(data_path_collection).values()
+        imgs_sq_segment = [torch.tensor(x, dtype=torch.float32) for x in imgs_sq_segment]
+        imgs_sq_segment = [self.resizer(x) for x in imgs_sq_segment]
+        imgs_sq_batch = torch.stack(imgs_sq_segment)
+        imgs_sq_batch = self.train_aug_transform(imgs_sq_batch)
+        self.img_batch.extend(imgs_sq_batch)
 
     def __iter__(self):
-        raise NotImplementedError
-        yield 'dude'
+        for cell_id, data_path_collection in self.local_imgs.items():
+            if self.cell_id_ok(cell_id):
+#                self._add_to_batch(data_path_collection)
+                imgs_sq_segment = self.segmentor_shaper_transform(data_path_collection).values()
+                imgs_sq_segment = [torch.tensor(x, dtype=torch.float32) for x in imgs_sq_segment]
+                imgs_sq_segment = [self.resizer(x) for x in imgs_sq_segment]
+                imgs_sq_batch = torch.stack(imgs_sq_segment)
+                imgs_sq_batch_pos, imgs_sq_batch_contrast = self.train_aug_transform(imgs_sq_batch)
+                self.img_batch.extend(imgs_sq_batch)
+
+                label = self.df_label.loc[cell_id]
+                print (label)
+
+
+            if self.img_batch.is_batch_full():
+                yield self.img_batch.pop()
+
+        else:
+            yield self.img_batch.pop()
+
+class CellImageSegmentBatch:
+    '''Bla bla
+
+    '''
+    def __init__(self, batch_size):
+        self.batch_size = batch_size
+        self.container = None
+
+    def is_batch_full(self):
+        return self.container.shape[0] >= self.batch_size
+
+    def extend(self, payload):
+        if self.container is None:
+            self.container = payload
+        else:
+            self.container = torch.cat([self.container, payload], dim=0)
+
+    def pop(self):
+        content_return, content_remainder = torch.split(self.container, self.batch_size)
+        self.container = content_remainder
+        return content_return

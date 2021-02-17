@@ -130,6 +130,7 @@ class _ConfocalMaskSegmentor(_ConfocalWorker):
 
     def cmp_mask_segments(self):
 
+        self.mask_segment = {}
         for cell_counter in np.unique(self.segments):
             if cell_counter == 0:
                 continue

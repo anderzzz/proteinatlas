@@ -26,6 +26,7 @@ class ImageShapeMaker(object):
         '''Bla bla
 
         '''
+        self.imgs_reshaped = {}
         self.raw_image = self.img_retriever.retrieve(img_path)
         for cell_counter, cell_mask in masks.items():
             img_single_cell = np.where(cell_mask, self.raw_image, -1)
