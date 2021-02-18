@@ -424,4 +424,3 @@ class ConfocalNucleusSweepSegmentor(ConfocalNucleusSegmentor):
         return self._merge_sweeps(segments_sweeps_next, img_path)
 
 
-

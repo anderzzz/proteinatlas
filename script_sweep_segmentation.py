@@ -2,10 +2,10 @@
 
 '''
 from train_data import parse_labels, only_n_class, image_factory, skimage_img_retriever_rescaler, contrast_split
-from segmentor import ConfocalNucleusAreaMasker, ConfocalNucleusSegmentor, \
+from _segmentor import ConfocalNucleusAreaMasker, ConfocalNucleusSegmentor, \
                       ConfocalCellAreaMasker, ConfocalCellSegmentor, \
                       ConfocalNucleusSweepSegmentor, ConfocalNucleusSweepAreaMasker
-from shaper import ImageShapeMaker
+from _shaper import ImageShapeMaker
 from visualiser import Visualiser
 from mask_coco_encoder import encode_binary_mask
 

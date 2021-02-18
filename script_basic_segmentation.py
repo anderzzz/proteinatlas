@@ -2,9 +2,9 @@
 
 '''
 from train_data import parse_labels, factory, skimage_img_retriever
-from segmentor import ConfocalNucleusAreaMasker, ConfocalNucleusSegmentor, \
+from _segmentor import ConfocalNucleusAreaMasker, ConfocalNucleusSegmentor, \
                       ConfocalCellAreaMasker, ConfocalCellSegmentor
-from shaper import ImageShapeMaker
+from _shaper import ImageShapeMaker
 from visualiser import Visualiser
 
 local_imgs = factory.create('local disk', src_dir='./data_tmp')
