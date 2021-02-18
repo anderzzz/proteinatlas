@@ -1,17 +1,13 @@
 '''Dataset and Dataloader for PyTorch after segmentation
 
 '''
-from os import listdir
-import pandas
-import numpy as np
-
 import torch
-from torch.utils.data import Dataset, Sampler, BatchSampler, DataLoader
+from torch.utils.data import Dataset
 from torchvision import transforms
 
 from skimage.util import random_noise
 
-from train_data import parse_labels, skimage_img_retriever_rescaler, ImgMetaData, image_factory
+from train_data import parse_labels
 
 MEAN = [110]
 STD = [50]
@@ -75,42 +71,7 @@ class CellImageSegmentContrastDataset(Dataset):
         transformed_images = self.train_aug_transform(images)
         images = torch.stack(transformed_images)
 
-        return {'label' : label, 'image' : images}
+        return label, images
 
     def __len__(self):
         return len(self.cell_image_segmentor)
-
-
-class CellImageSegmentSequentialSampler(Sampler):
-    '''Bla bla
-
-    '''
-    def __init__(self, data_source):
-        super().__init__(data_source)
-
-    def __len__(self):
-        return len(self.data_source)
-
-    def __iter__(self):
-        return iter(self.data_source.cell_image_segmentor.keys())
-
-class CellImageSegmentRandomSampler(Sampler):
-    '''Bla bla
-
-    '''
-    def __init__(self, data_source):
-        super().__init__(data_source)
-        self.data_source = data_source
-
-    def __iter__(self):
-        all_keys = self.data_source.cell_image_segmentor.keys()
-        np.random.shuffle(all_keys)
-        return iter(all_keys)
-
-class CellImageSegmentBatchSampler(BatchSampler):
-    '''Bla bla
-
-    '''
-    def __init__(self, sampler, batch_size=1, drop_last=False):
-        super().__init__(sampler=sampler, batch_size=batch_size, drop_last=drop_last)
-

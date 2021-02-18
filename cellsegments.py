@@ -258,7 +258,12 @@ class CellImageSegmentor(object):
         '''Bla bla
 
         '''
-        with open('{}/{}'.format(self.save_folder, self.save_folder_db)) as f_json:
+        fp_db = '{}/{}'.format(self.save_folder, self.save_folder_db)
+        if not os.path.isfile(fp_db):
+            raise RuntimeError('Database file missing. Reinitialize to recreate.')
+
+        with open(fp_db) as f_json:
             data = json.load(f_json)
+
         return data
 
