@@ -4,6 +4,7 @@
 import os
 import json
 import numpy as np
+import pandas as pd
 import torch
 from mask_coco_encoder import encode_binary_mask
 
@@ -12,6 +13,13 @@ from train_data import ImgMetaData, skimage_img_retriever_rescaler
 from _segmentor import ConfocalNucleusSweepSegmentor, ConfocalNucleusAreaMasker, ConfocalNucleusSweepAreaMasker, \
     ConfocalCellAreaMasker, ConfocalCellSegmentor
 from _shaper import ImageShapeMaker
+
+def check_after_toc_build(f):
+    def wrapper(*args):
+        if args[0].pd_toc is None:
+            raise RuntimeError('Before method {} is used, `build_toc` must be called')
+        return f(*args)
+    return wrapper
 
 class CellImageSegmentor(object):
     '''Bla bla
@@ -44,6 +52,10 @@ class CellImageSegmentor(object):
         self.min_cell_luminosity = min_cell_luminosity
         self.save_folder = save_folder
         self.save_folder_db = save_folder_db
+
+        self.db_master_id = 0
+        self.primary_id_to_cell = {}
+        self.pd_toc = None
 
         maskers_sweep_nuc = [
             ConfocalNucleusAreaMasker(img_retriever=skimage_img_retriever_rescaler,
@@ -157,6 +169,7 @@ class CellImageSegmentor(object):
             torch.save(tensor, file_path)
 
             new_entry = {
+                'id' : '{}'.format(self.db_master_id),
                 'file_path' : '{}'.format(file_path),
                 'n_channels' : '{}'.format(tensor.shape[0]),
                 'height' : '{}'.format(tensor.shape[1]),
@@ -168,50 +181,78 @@ class CellImageSegmentor(object):
 
             entries['{}'.format(cell_counter)] = new_entry
 
+            self.primary_id_to_cell[self.db_master_id] = (cell_id, cell_counter)
+            self.db_master_id += 1
+
         data = self._read_db()
         data['segments'][cell_id] = entries
         with open('{}/{}'.format(self.save_folder, self.save_folder_db), 'w') as json_db:
             json.dump(data, json_db)
 
+    def build_toc(self):
+        '''Bla bla
+
+        '''
+        data = self._read_db()
+        df = pd.DataFrame.from_dict({(i,j,k) : data[i][j][k] for i in data.keys()
+                                                             for j in data[i].keys()
+                                                             for k in data[i][j].keys()}, orient='index')
+        df = df.reset_index()
+        df = df.rename(columns={'level_0' : 'entry_type', 'level_1' : 'cell_id', 'level_2' : 'cell_counter'}).set_index('id')
+        df.index = df.index.astype(np.uint64)
+        self.pd_toc = df
+
+    @check_after_toc_build
     def items(self):
         '''Bla bla
 
         '''
-        data = self._read_db()
-        for cell_id, cell_data in data['segments'].items():
-            for cell_counter, cell_segment_data in cell_data.items():
-                tensor = torch.load(cell_segment_data['file_path'])
-                yield (cell_id, cell_counter), tensor
+        for dbid, row in self.pd_toc.iterrows():
+            tensor = torch.load(row['file_path'])
+            yield dbid, tensor
 
+    @check_after_toc_build
     def keys(self):
         '''Bla bla
 
         '''
-        data = self._read_db()
-        return [(cell_id, cell_counter) for cell_id, subdata in data['segments'].items()
-                                            for cell_counter in subdata.keys()]
+        return self.pd_toc.index.to_list()
 
+    @check_after_toc_build
+    def __len__(self):
+        return len(self.keys())
+
+    @check_after_toc_build
     def __getitem__(self, item):
         '''Bla bla
 
         '''
-        data = self._read_db()
-        try:
-            fp = data['segments'][item[0]][item[1]]['file_path']
-        except KeyError:
-            raise KeyError('No entry for {} found in transformed database. Have you run `transform` method on this cell image?')
-        return torch.load(fp)
+        return torch.load(self.pd_toc.loc[item]['file_path'])
 
+    @check_after_toc_build
     def inspect_entry(self, item):
         '''Bla bla
 
         '''
+        return dict(self.pd_toc.loc[item])
+
+    def already_in_db_(self, cell_id):
+        '''Bla bla
+
+        '''
         data = self._read_db()
-        try:
-            entry = data['segments'][item[0]][item[1]]
-        except KeyError:
-            raise KeyError('No entry for {} found in transformed database. Have you run `transform` method on this cell image?')
-        return entry
+        return cell_id in data['segments'].keys()
+
+    def reset(self):
+        '''Bla bla
+
+        '''
+        self.db_master_id = 0
+        self.primary_id_to_cell = {}
+        for tmp_file in os.listdir(self.save_folder):
+            os.remove(tmp_file)
+        with open('{}/{}'.format(self.save_folder, self.save_folder_db), 'w') as f_json:
+            json.dump({'segments' : {}}, f_json)
 
     def _read_db(self):
         '''Bla bla
@@ -221,11 +262,3 @@ class CellImageSegmentor(object):
             data = json.load(f_json)
         return data
 
-    def reset(self):
-        '''Bla bla
-
-        '''
-        for tmp_file in os.listdir(self.save_folder):
-            os.remove(tmp_file)
-        with open('{}/{}'.format(self.save_folder, self.save_folder_db), 'w') as f_json:
-            json.dump({'segments' : {}}, f_json)
