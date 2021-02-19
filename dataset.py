@@ -75,3 +75,24 @@ class CellImageSegmentContrastDataset(Dataset):
 
     def __len__(self):
         return len(self.cell_image_segmentor)
+
+
+class CellImageSegmentOneClassContrastDataset(CellImageSegmentContrastDataset):
+    '''Bla bla
+
+    '''
+    def __init__(self,
+                 positive_one_class,
+                 cell_image_segmentor=None,
+                 data_label_file=None,
+                 square_size=224,
+                 gray_noise_range=0.05):
+        super().__init__(cell_image_segmentor=cell_image_segmentor, data_label_file=data_label_file,
+                         square_size=square_size, gray_noise_range=gray_noise_range)
+
+        self.positive_one_class = positive_one_class
+
+    def __getitem__(self, item):
+
+        label, images = super().__getitem__(item)
+        return label[self.positive_one_class], images
