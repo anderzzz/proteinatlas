@@ -1,4 +1,4 @@
-'''Bla bla
+'''Reshape image given segmentation mask
 
 '''
 import numpy as np

@@ -5,7 +5,6 @@ import numpy as np
 from collections import Counter
 
 from skimage.segmentation import watershed, random_walker
-from skimage.draw import ellipse
 from skimage import morphology
 from skimage.measure import EllipseModel
 from skimage.util import invert

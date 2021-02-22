@@ -1,4 +1,4 @@
-'''Bla bla
+'''Construction of cell segments and creating a handle to the output image data
 
 '''
 import os

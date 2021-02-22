@@ -1,4 +1,4 @@
-'''Bla bla
+'''Encode mask to string
 
 '''
 import base64
