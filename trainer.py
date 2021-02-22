@@ -8,7 +8,7 @@ from numpy.random import shuffle
 
 import torch
 from torch.utils.data import DataLoader, SubsetRandomSampler
-from torch.optim import SGD
+from torch.optim import SGD, lr_scheduler
 
 import tensorboard_logger as tb_logger
 
@@ -55,6 +55,8 @@ class TrainerImageSegmentBinaryContrastive(object):
                  opt_lr=0.05,
                  opt_momentum=0.9,
                  opt_weight_decay=1e-4,
+                 opt_scheduler_stepsize=15,
+                 opt_scheduler_gamma=0.1,
                  save_model_path='hello',
                  save_model_freq=10,
                  save_logger_folder='./logging'
@@ -74,6 +76,8 @@ class TrainerImageSegmentBinaryContrastive(object):
             'opt_lr' : opt_lr,
             'opt_momentum' : opt_momentum,
             'opt_weight_decay' : opt_weight_decay,
+            'opt_scheduler_stepsize' : opt_scheduler_stepsize,
+            'opt_scheduler_gamma' : opt_scheduler_gamma,
             'save_model_path' : save_model_path,
             'save_model_freq' : save_model_freq,
             'save_logger_folder' : save_logger_folder
@@ -116,6 +120,9 @@ class TrainerImageSegmentBinaryContrastive(object):
                              lr=self.inp['opt_lr'],
                              momentum=self.inp['opt_momentum'],
                              weight_decay=self.inp['opt_weight_decay'])
+        self.lr_scheduler = lr_scheduler.StepLR(self.optimizer,
+                                                step_size=self.inp['opt_scheduler_stepsize'],
+                                                gamma=self.inp['opt_scheduler_gamma'])
 
         self.logger = tb_logger.Logger(logdir=self.inp['save_logger_folder'], flush_secs=2)
 
@@ -150,6 +157,7 @@ class TrainerImageSegmentBinaryContrastive(object):
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
+                self.lr_scheduler.step()
 
                 batch_time.update(time.time() - end)
                 end = time.time()
@@ -183,3 +191,11 @@ class TrainerImageSegmentBinaryContrastive(object):
         }
         torch.save(state, self.inp['save_model_path'])
         del state
+
+    def load_me(self, model_path):
+        '''Bla bla
+
+        '''
+        saved_dict = torch.load(model_path)
+        self.model.load_state_dict(saved_dict['model'])
+        self.optimizer.load_state_dict(saved_dict['optimizer'])
