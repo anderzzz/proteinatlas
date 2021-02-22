@@ -4,6 +4,8 @@
 import sys
 import time
 
+from numpy.random import shuffle
+
 import torch
 from torch.utils.data import DataLoader, SubsetRandomSampler
 from torch.optim import SGD
@@ -46,9 +48,8 @@ class TrainerImageSegmentBinaryContrastive(object):
                  raw_image_data_label_file='./data_tmp/train.csv',
                  raw_image_resegmentation=False,
                  data_batch_size=128,
-                 data_shuffle=True,
                  data_positive_class=14,
-                 data_positive_minratio=0.1,
+                 data_positive_minratio=None,
                  model_name='resnet18',
                  model_feat_dim=128,
                  opt_lr=0.05,
@@ -66,7 +67,6 @@ class TrainerImageSegmentBinaryContrastive(object):
             'raw_image_data_label_file' : raw_image_data_label_file,
             'raw_image_resegmentation' : raw_image_resegmentation,
             'data_batch_size' : data_batch_size,
-            'data_shuffle' : data_shuffle,
             'data_positive_class' : data_positive_class,
             'data_positive_minratio' : data_positive_minratio,
             'model_name' : model_name,
@@ -92,10 +92,21 @@ class TrainerImageSegmentBinaryContrastive(object):
         cellsegment_dataset = CellImageSegmentOneClassContrastDataset(positive_one_class=self.inp['data_positive_class'],
                                                                       cell_image_segmentor=segment_creator,
                                                                       data_label_file=self.inp['raw_image_data_label_file'])
-        self.sampler = SubsetRandomSampler()
-        self.dloader = DataLoader(cellsegment_dataset,
-                                  batch_size=self.inp['data_batch_size'],
-                                  shuffle=self.inp['data_shuffle'])
+        if not self.inp['data_positive_minratio'] is None:
+            i_pos = cellsegment_dataset.positive_items
+            i_neg = cellsegment_dataset.negative_items
+            if len(i_pos) / (len(i_pos) + len(i_neg)) < self.inp['data_positive_minratio']:
+                n_negs = len(i_pos) / self.inp['data_positive_minratio'] - len(i_pos)
+                shuffle(i_neg)
+                i_neg = i_neg[:int(n_negs)]
+            subsetsampler = SubsetRandomSampler(i_pos + i_neg)
+            self.dloader = DataLoader(cellsegment_dataset,
+                                      batch_size=self.inp['data_batch_size'],
+                                      sampler=subsetsampler)
+        else:
+            self.dloader = DataLoader(cellsegment_dataset,
+                                      batch_size=self.inp['data_batch_size'],
+                                      shuffle=True)
 
         self.model = SupConResNet(name=self.inp['model_name'],
                                   feat_dim=self.inp['model_feat_dim'],

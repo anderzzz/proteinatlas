@@ -96,3 +96,15 @@ class CellImageSegmentOneClassContrastDataset(CellImageSegmentContrastDataset):
 
         label, images = super().__getitem__(item)
         return label[self.positive_one_class], images
+
+    @property
+    def positive_items(self):
+        pos_cell_ids = self.df_label.loc[self.df_label[self.positive_one_class] == 1].index
+        pos_mask = self.cell_image_segmentor.pd_toc['cell_id'].isin(pos_cell_ids)
+        return self.cell_image_segmentor.pd_toc[pos_mask].index.to_list()
+
+    @property
+    def negative_items(self):
+        neg_cell_ids = self.df_label.loc[self.df_label[self.positive_one_class] == 0].index
+        neg_mask = self.cell_image_segmentor.pd_toc['cell_id'].isin(neg_cell_ids)
+        return self.cell_image_segmentor.pd_toc[neg_mask].index.to_list()
