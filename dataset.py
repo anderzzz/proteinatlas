@@ -28,13 +28,17 @@ class CellImageSegmentContrastDataset(Dataset):
                  cell_image_segmentor=None,
                  data_label_file=None,
                  square_size=224,
-                 gray_noise_range=0.05):
+                 crop_scale=(0.7,1.0),
+                 gray_noise_range=0.20,
+                 image_dtype=torch.float32):
         super(CellImageSegmentContrastDataset, self).__init__()
 
         self.cell_image_segmentor = cell_image_segmentor
         self.data_label_file = data_label_file
         self.gray_noise_range = gray_noise_range
         self.square_size = square_size
+        self.crop_scale = crop_scale
+        self.image_dtype = image_dtype
 
         self.cell_image_segmentor.build_toc()
 
@@ -43,20 +47,25 @@ class CellImageSegmentContrastDataset(Dataset):
         else:
             raise ValueError('Ground truth labels file missing')
 
+        # The input tensor is in range 0 to 255. The transformations are:
+        # 1. Scale tensor to range 0 to 1.
+        # 2. Crop image to random size and aspect ration, followed by scaling back to input size
+        # 3. Do horizontal flip with 0.5 probability
+        # 4. Scale the magnitude of pixel value, scale from gaussian (clipped to range 0.0 to 1.0)
         random_transform = transforms.Compose([
-            transforms.RandomResizedCrop(size=self.square_size, scale=(0.2, 1.)),
+            transforms.Normalize(mean=0.0, std=255.0),
+            transforms.RandomResizedCrop(size=self.square_size, scale=self.crop_scale),
             transforms.RandomHorizontalFlip(),
-            #transforms.RandomApply([
-            #    transforms.Lambda(self._speckle_noise)
-            #], p=0.8),
-            #transforms.ToTensor(),
-            transforms.Normalize(mean=MEAN, std=STD)
+            transforms.RandomApply([
+                transforms.Lambda(self._speckle_noise)
+            ], p=0.8)
         ])
         self.train_aug_transform = TwoCropTransform(random_transform)
         self.resizer = transforms.Resize(size=self.square_size)
 
     def _speckle_noise(self, img):
-        return random_noise(img, mode='speckle', mean=0, var=self.gray_noise_range, clip=True)
+        noise_added = random_noise(img.numpy(), mode='speckle', mean=0, var=self.gray_noise_range, clip=True)
+        return torch.tensor(noise_added)
 
     def __getitem__(self, item):
 
@@ -70,6 +79,7 @@ class CellImageSegmentContrastDataset(Dataset):
         images = self.resizer(images)
         transformed_images = self.train_aug_transform(images)
         images = torch.stack(transformed_images)
+        images = images.type(self.image_dtype)
 
         return label, images
 
@@ -86,9 +96,11 @@ class CellImageSegmentOneClassContrastDataset(CellImageSegmentContrastDataset):
                  cell_image_segmentor=None,
                  data_label_file=None,
                  square_size=224,
-                 gray_noise_range=0.05):
+                 gray_noise_range=0.05,
+                 image_dtype=torch.float32):
         super().__init__(cell_image_segmentor=cell_image_segmentor, data_label_file=data_label_file,
-                         square_size=square_size, gray_noise_range=gray_noise_range)
+                         square_size=square_size, gray_noise_range=gray_noise_range,
+                         image_dtype=image_dtype)
 
         self.positive_one_class = positive_one_class
 

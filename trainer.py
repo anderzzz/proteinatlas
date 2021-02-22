@@ -50,6 +50,7 @@ class TrainerImageSegmentBinaryContrastive(object):
                  data_batch_size=128,
                  data_positive_class=14,
                  data_positive_minratio=None,
+                 model_data_precision=torch.float32,
                  model_name='resnet18',
                  model_feat_dim=128,
                  opt_lr=0.05,
@@ -71,6 +72,7 @@ class TrainerImageSegmentBinaryContrastive(object):
             'data_batch_size' : data_batch_size,
             'data_positive_class' : data_positive_class,
             'data_positive_minratio' : data_positive_minratio,
+            'model_data_precision' : model_data_precision,
             'model_name' : model_name,
             'model_feat_dim' : model_feat_dim,
             'opt_lr' : opt_lr,
@@ -95,7 +97,8 @@ class TrainerImageSegmentBinaryContrastive(object):
 
         cellsegment_dataset = CellImageSegmentOneClassContrastDataset(positive_one_class=self.inp['data_positive_class'],
                                                                       cell_image_segmentor=segment_creator,
-                                                                      data_label_file=self.inp['raw_image_data_label_file'])
+                                                                      data_label_file=self.inp['raw_image_data_label_file'],
+                                                                      image_dtype=self.inp['model_data_precision'])
         if not self.inp['data_positive_minratio'] is None:
             i_pos = cellsegment_dataset.positive_items
             i_neg = cellsegment_dataset.negative_items
@@ -115,6 +118,7 @@ class TrainerImageSegmentBinaryContrastive(object):
         self.model = SupConResNet(name=self.inp['model_name'],
                                   feat_dim=self.inp['model_feat_dim'],
                                   in_channel=n_channels_in)
+        self.model = self.model.type(self.inp['model_data_precision'])
         self.criterion = SupConLoss()
         self.optimizer = SGD(self.model.parameters(),
                              lr=self.inp['opt_lr'],
