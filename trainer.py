@@ -5,7 +5,7 @@ import sys
 import time
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, SubsetRandomSampler
 from torch.optim import SGD
 
 import tensorboard_logger as tb_logger
@@ -48,6 +48,7 @@ class TrainerImageSegmentBinaryContrastive(object):
                  data_batch_size=128,
                  data_shuffle=True,
                  data_positive_class=14,
+                 data_positive_minratio=0.1,
                  model_name='resnet18',
                  model_feat_dim=128,
                  opt_lr=0.05,
@@ -67,6 +68,7 @@ class TrainerImageSegmentBinaryContrastive(object):
             'data_batch_size' : data_batch_size,
             'data_shuffle' : data_shuffle,
             'data_positive_class' : data_positive_class,
+            'data_positive_minratio' : data_positive_minratio,
             'model_name' : model_name,
             'model_feat_dim' : model_feat_dim,
             'opt_lr' : opt_lr,
@@ -90,6 +92,7 @@ class TrainerImageSegmentBinaryContrastive(object):
         cellsegment_dataset = CellImageSegmentOneClassContrastDataset(positive_one_class=self.inp['data_positive_class'],
                                                                       cell_image_segmentor=segment_creator,
                                                                       data_label_file=self.inp['raw_image_data_label_file'])
+        self.sampler = SubsetRandomSampler()
         self.dloader = DataLoader(cellsegment_dataset,
                                   batch_size=self.inp['data_batch_size'],
                                   shuffle=self.inp['data_shuffle'])
@@ -120,16 +123,18 @@ class TrainerImageSegmentBinaryContrastive(object):
             for idx, (labels, images) in enumerate(self.dloader):
                 data_time.update(time.time() - end)
 
+                batch_size = labels.shape[0]
+
                 print (images.shape)
                 view_1, view_2 = torch.unbind(images, dim=1)
                 images = torch.cat([view_1, view_2], dim=0)
 
                 features = self.model(images)
-                f1, f2 = torch.split(features, [self.inp['data_batch_size'], self.inp['data_batch_size']], dim=0)
+                f1, f2 = torch.split(features, [batch_size, batch_size], dim=0)
                 features = torch.cat([f1.unsqueeze(1), f2.unsqueeze(1)], dim=1)
                 loss = self.criterion(features, labels)
 
-                losses.update(loss.item(), 2)
+                losses.update(loss.item(), batch_size)
 
                 self.optimizer.zero_grad()
                 loss.backward()
