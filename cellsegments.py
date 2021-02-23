@@ -53,8 +53,6 @@ class CellImageSegmentor(object):
         self.save_folder = save_folder
         self.save_folder_db = save_folder_db
 
-        self.db_master_id = 0
-        self.primary_id_to_cell = {}
         self.pd_toc = None
 
         maskers_sweep_nuc = [
@@ -169,7 +167,6 @@ class CellImageSegmentor(object):
             torch.save(tensor, file_path)
 
             new_entry = {
-                'id' : '{}'.format(self.db_master_id),
                 'file_path' : '{}'.format(file_path),
                 'n_channels' : '{}'.format(tensor.shape[0]),
                 'height' : '{}'.format(tensor.shape[1]),
@@ -180,9 +177,6 @@ class CellImageSegmentor(object):
                 new_entry['channel_{}'.format(k_channel)] = channel_name
 
             entries['{}'.format(cell_counter)] = new_entry
-
-            self.primary_id_to_cell[self.db_master_id] = (cell_id, cell_counter)
-            self.db_master_id += 1
 
         data = self._read_db()
         data['segments'][cell_id] = entries
@@ -198,7 +192,7 @@ class CellImageSegmentor(object):
                                                              for j in data[i].keys()
                                                              for k in data[i][j].keys()}, orient='index')
         df = df.reset_index()
-        df = df.rename(columns={'level_0' : 'entry_type', 'level_1' : 'cell_id', 'level_2' : 'cell_counter'}).set_index('id')
+        df = df.rename(columns={'level_0' : 'entry_type', 'level_1' : 'cell_id', 'level_2' : 'cell_counter'})
         df.index = df.index.astype(np.uint64)
         self.pd_toc = df
 
@@ -248,7 +242,6 @@ class CellImageSegmentor(object):
 
         '''
         self.db_master_id = 0
-        self.primary_id_to_cell = {}
         for tmp_file in os.listdir(self.save_folder):
             os.remove('{}/{}'.format(self.save_folder, tmp_file))
         with open('{}/{}'.format(self.save_folder, self.save_folder_db), 'w') as f_json:

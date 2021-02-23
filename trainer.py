@@ -201,13 +201,15 @@ class TrainerImageSegmentBinaryContrastive(object):
         self.model.load_state_dict(saved_dict['model'])
         self.optimizer.load_state_dict(saved_dict['optimizer'])
 
-def create_segments(raw_image_src_type, raw_image_folder, raw_image_channels, raw_image_resegmentation=False, max_cellids=None):
+def create_segments(raw_image_src_type, raw_image_folder, raw_image_channels,
+                    raw_image_resegmentation=False, max_cellids=None,
+                    save_folder='./_tmp_save_segments'):
     '''Execute segmentation and return the handler
 
     '''
     local_imgs = image_factory.create(raw_image_src_type,
                                       folder=raw_image_folder)
-    segment_creator = CellImageSegmentor(return_channels=raw_image_channels)
+    segment_creator = CellImageSegmentor(return_channels=raw_image_channels, save_folder=save_folder)
     if raw_image_resegmentation:
         segment_creator.reset()
 
