@@ -3,11 +3,14 @@
 '''
 import torch
 
-from trainer import TrainerImageSegmentBinaryContrastive
+from trainer import TrainerImageSegmentBinaryContrastive, create_segments
 
-t14 = TrainerImageSegmentBinaryContrastive(data_batch_size=32,
+segment_handler = create_segments('local disk', './data_tmp', ('green',), True, 4)
+t14 = TrainerImageSegmentBinaryContrastive(data_batch_size=8,
                                            data_positive_minratio=0.15,
+                                           data_segment_handler=segment_handler,
                                            save_model_path='t14_saved.tar',
                                            model_data_precision=torch.float64)
-t14.train_me(2,1)
+t14.load_me('t14_saved.tar')
+t14.train_me(1,1)
 

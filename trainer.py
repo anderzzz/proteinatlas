@@ -42,11 +42,8 @@ class TrainerImageSegmentBinaryContrastive(object):
 
     '''
     def __init__(self,
-                 raw_image_src_type='local disk',
-                 raw_image_folder='./data_tmp',
-                 raw_image_channels=('green',),
                  raw_image_data_label_file='./data_tmp/train.csv',
-                 raw_image_resegmentation=False,
+                 data_segment_handler=None,
                  data_batch_size=128,
                  data_positive_class=14,
                  data_positive_minratio=None,
@@ -64,11 +61,8 @@ class TrainerImageSegmentBinaryContrastive(object):
                  ):
 
         self.inp = {
-            'raw_image_src_type' : raw_image_src_type,
-            'raw_image_folder' : raw_image_folder,
-            'raw_image_channels' : raw_image_channels,
             'raw_image_data_label_file' : raw_image_data_label_file,
-            'raw_image_resegmentation' : raw_image_resegmentation,
+            'data_segment_handler' : data_segment_handler,
             'data_batch_size' : data_batch_size,
             'data_positive_class' : data_positive_class,
             'data_positive_minratio' : data_positive_minratio,
@@ -85,18 +79,8 @@ class TrainerImageSegmentBinaryContrastive(object):
             'save_logger_folder' : save_logger_folder
             }
 
-        local_imgs = image_factory.create(self.inp['raw_image_src_type'],
-                                          folder=self.inp['raw_image_folder'])
-        segment_creator = CellImageSegmentor(return_channels=self.inp['raw_image_channels'])
-        n_channels_in = len(segment_creator.return_channels)
-        if self.inp['raw_image_resegmentation']:
-            segment_creator.reset()
-        for cell_id, data_path_collection in local_imgs.items():
-            if not segment_creator.already_in_db_(cell_id):
-                segment_creator.transform(data_path_collection).write_entry(cell_id)
-
         cellsegment_dataset = CellImageSegmentOneClassContrastDataset(positive_one_class=self.inp['data_positive_class'],
-                                                                      cell_image_segmentor=segment_creator,
+                                                                      cell_image_segmentor=self.inp['data_segment_handler'],
                                                                       data_label_file=self.inp['raw_image_data_label_file'],
                                                                       image_dtype=self.inp['model_data_precision'])
         if not self.inp['data_positive_minratio'] is None:
@@ -117,7 +101,7 @@ class TrainerImageSegmentBinaryContrastive(object):
 
         self.model = SupConResNet(name=self.inp['model_name'],
                                   feat_dim=self.inp['model_feat_dim'],
-                                  in_channel=n_channels_in)
+                                  in_channel=len(self.inp['data_segment_handler'].return_channels))
         self.model = self.model.type(self.inp['model_data_precision'])
         self.criterion = SupConLoss()
 
@@ -155,6 +139,8 @@ class TrainerImageSegmentBinaryContrastive(object):
                 batch_size = labels.shape[0]
 
                 print (images.shape)
+                print (labels.shape)
+                print (labels)
                 view_1, view_2 = torch.unbind(images, dim=1)
                 images = torch.cat([view_1, view_2], dim=0)
 
@@ -214,3 +200,26 @@ class TrainerImageSegmentBinaryContrastive(object):
         saved_dict = torch.load(model_path)
         self.model.load_state_dict(saved_dict['model'])
         self.optimizer.load_state_dict(saved_dict['optimizer'])
+
+def create_segments(raw_image_src_type, raw_image_folder, raw_image_channels, raw_image_resegmentation=False, max_cellids=None):
+    '''Execute segmentation and return the handler
+
+    '''
+    local_imgs = image_factory.create(raw_image_src_type,
+                                      folder=raw_image_folder)
+    segment_creator = CellImageSegmentor(return_channels=raw_image_channels)
+    if raw_image_resegmentation:
+        segment_creator.reset()
+
+    n_cell_ids = 0
+    for cell_id, data_path_collection in local_imgs.items():
+        print (cell_id)
+        if not segment_creator.already_in_db_(cell_id):
+            segment_creator.transform(data_path_collection).write_entry(cell_id)
+
+        n_cell_ids += 1
+        if not max_cellids is None:
+            if n_cell_ids >= max_cellids:
+                break
+
+    return segment_creator
