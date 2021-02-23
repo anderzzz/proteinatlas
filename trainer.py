@@ -93,11 +93,13 @@ class TrainerImageSegmentBinaryContrastive(object):
             subsetsampler = SubsetRandomSampler(i_pos + i_neg)
             self.dloader = DataLoader(cellsegment_dataset,
                                       batch_size=self.inp['data_batch_size'],
-                                      sampler=subsetsampler)
+                                      sampler=subsetsampler,
+                                      pin_memory=True)
         else:
             self.dloader = DataLoader(cellsegment_dataset,
                                       batch_size=self.inp['data_batch_size'],
-                                      shuffle=True)
+                                      shuffle=True,
+                                      pin_memory=True)
 
         self.model = SupConResNet(name=self.inp['model_name'],
                                   feat_dim=self.inp['model_feat_dim'],
@@ -155,8 +157,8 @@ class TrainerImageSegmentBinaryContrastive(object):
 
                 losses.update(loss.item(), batch_size)
 
-                self.optimizer.zero_grad()
                 loss.backward()
+                self.optimizer.zero_grad()
                 self.optimizer.step()
                 self.lr_scheduler.step()
 
