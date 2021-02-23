@@ -250,7 +250,7 @@ class CellImageSegmentor(object):
         self.db_master_id = 0
         self.primary_id_to_cell = {}
         for tmp_file in os.listdir(self.save_folder):
-            os.remove(tmp_file)
+            os.remove('{}/{}'.format(self.save_folder, tmp_file))
         with open('{}/{}'.format(self.save_folder, self.save_folder_db), 'w') as f_json:
             json.dump({'segments' : {}}, f_json)
 

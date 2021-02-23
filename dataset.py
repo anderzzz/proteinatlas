@@ -9,9 +9,6 @@ from skimage.util import random_noise
 
 from train_data import parse_labels
 
-MEAN = [110]
-STD = [50]
-
 class TwoCropTransform:
     """Create two crops of the same image"""
     def __init__(self, transform):
@@ -96,7 +93,7 @@ class CellImageSegmentOneClassContrastDataset(CellImageSegmentContrastDataset):
                  cell_image_segmentor=None,
                  data_label_file=None,
                  square_size=224,
-                 gray_noise_range=0.05,
+                 gray_noise_range=0.20,
                  image_dtype=torch.float32):
         super().__init__(cell_image_segmentor=cell_image_segmentor, data_label_file=data_label_file,
                          square_size=square_size, gray_noise_range=gray_noise_range,
