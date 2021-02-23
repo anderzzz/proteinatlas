@@ -120,6 +120,13 @@ class TrainerImageSegmentBinaryContrastive(object):
                                   in_channel=n_channels_in)
         self.model = self.model.type(self.inp['model_data_precision'])
         self.criterion = SupConLoss()
+
+        if torch.cuda.is_available():
+            if torch.cuda.device_count() > 1:
+                self.model.encoder = torch.nn.DataParallel(self.model.encoder)
+            self.model = self.model.cuda()
+            self.criterion = self.criterion.cuda()
+
         self.optimizer = SGD(self.model.parameters(),
                              lr=self.inp['opt_lr'],
                              momentum=self.inp['opt_momentum'],
@@ -150,6 +157,10 @@ class TrainerImageSegmentBinaryContrastive(object):
                 print (images.shape)
                 view_1, view_2 = torch.unbind(images, dim=1)
                 images = torch.cat([view_1, view_2], dim=0)
+
+                if torch.cuda.is_available():
+                    images = images.cuda(non_blocking=True)
+                    labels = labels.cuda(non_blocking=True)
 
                 features = self.model(images)
                 f1, f2 = torch.split(features, [batch_size, batch_size], dim=0)
