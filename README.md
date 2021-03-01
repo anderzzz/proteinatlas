@@ -1,6 +1,4 @@
 # proteinatlas
 Segmentation of multi-cell image and classification of stained organelles per cell.
 
-Part of Kaggle competition.
-
-In progress... 
+Uses contrastive loss to optimize the representation learning. Segmentation by traditional deductive image processing, including watershed.
